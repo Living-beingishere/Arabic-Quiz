@@ -1,0 +1,517 @@
+<!DOCTYPE html>
+<html lang="ku" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>تاقیکردنەوەی زمانی عەرەبی</title>
+    <!-- Supabase CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+        body {
+            font-family: Tahoma, sans-serif;
+            background-color: #f4f6f9;
+            margin: 0;
+            padding: 20px;
+            direction: rtl;
+            text-align: right;
+        }
+        .container {
+            max-width: 700px;
+            margin: 40px auto;
+            background: white;
+            padding: 30px;
+            border-radius: 12px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+        }
+        h2, h3 { color: #2c3e50; text-align: center; }
+        .form-group { margin-bottom: 20px; }
+        label { display: block; margin-bottom: 8px; font-weight: bold; color: #34495e; }
+        input {
+            width: 100%;
+            padding: 12px;
+            border: 1px solid #ccc;
+            border-radius: 6px;
+            font-size: 16px;
+            box-sizing: border-box;
+        }
+        button {
+            background-color: #3498db;
+            color: white;
+            border: none;
+            padding: 12px 20px;
+            font-size: 16px;
+            border-radius: 6px;
+            cursor: pointer;
+            width: 100%;
+            font-weight: bold;
+        }
+        button:hover { background-color: #2980b9; }
+        .hidden { display: none !important; }
+        
+        .question-box {
+            margin-bottom: 20px;
+            padding: 20px;
+            background: #f9f9f9;
+            border-radius: 8px;
+            border: 1px solid #e1e8ed;
+        }
+        .options label {
+            display: block;
+            font-weight: normal;
+            margin-bottom: 12px;
+            cursor: pointer;
+            padding: 8px;
+            background: #fff;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            direction: ltr;
+            text-align: right;
+        }
+        .timer-box {
+            text-align: center;
+            font-weight: bold;
+            color: #e74c3c;
+            margin-bottom: 15px;
+            font-size: 18px;
+        }
+        
+        .review-item {
+            margin-bottom: 15px;
+            padding: 15px;
+            border-radius: 6px;
+            border: 1px solid #ddd;
+        }
+        .correct-answer { color: #27ae60; font-weight: bold; }
+        .wrong-answer { color: #c0392b; font-weight: bold; text-decoration: line-through; }
+
+        .teacher-footer {
+            margin-top: 40px;
+            text-align: center;
+            border-top: 1px solid #eee;
+            padding-top: 15px;
+            display: flex;
+            justify-content: center;
+            gap: 20px;
+            align-items: center;
+        }
+        .teacher-btn-link {
+            background: none;
+            border: none;
+            color: #7f8c8d;
+            cursor: pointer;
+            font-size: 14px;
+            text-decoration: underline;
+            width: auto;
+        }
+        .teacher-btn-link:hover { color: #2c3e50; }
+        .reset-btn-link { color: #e67e22; }
+        .reset-btn-link:hover { color: #d35400; }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 15px;
+            margin-bottom: 25px;
+        }
+        .stat-card {
+            background: #ecf0f1;
+            padding: 15px;
+            border-radius: 8px;
+            text-align: center;
+        }
+        .stat-card h3 { margin: 0 0 10px 0; font-size: 14px; color: #7f8c8d; }
+        .stat-card p { margin: 0; font-size: 20px; font-weight: bold; color: #2c3e50; }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 15px;
+        }
+        th, td {
+            padding: 10px;
+            border: 1px solid #ddd;
+            text-align: center;
+            font-size: 14px;
+        }
+        th { background-color: #f8f9fa; color: #2c3e50; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    
+    <!-- 1. STUDENT QUIZ SECTION -->
+    <div id="student-section">
+        <h2>تاقیکردنەوەی زمانی عەرەبی</h2>
+        
+        <!-- Registration Form -->
+        <div id="register-form">
+            <div class="form-group">
+                <label>ناوی قوتابی و ناوی باوک (بە کوردی):</label>
+                <input type="text" id="studentName" value="" placeholder="" style="background-color: #ffffff;" oninput="enforceRestriction(this)">
+            </div>
+            <div class="form-group">
+                <label>پۆل و بەش و لق (بە کوردی):</label>
+                <input type="text" id="studentClass" oninput="enforceRestriction(this)" placeholder="زانستی / وێژەیی - لق">
+            </div>
+            <button onclick="startExam()">دەستپێکردنی تاقیکردنەوە</button>
+        </div>
+
+        <!-- Quiz Questions Container -->
+        <div id="quiz-form" class="hidden">
+            <div class="timer-box">کاتی ماوە بۆ ئەم پرسیارە: <span id="timeLeft">60</span> چرکە</div>
+            <div id="questionContainer"></div>
+            <button id="nextQuestionBtn" onclick="nextQuestion()">پرسیاری داهاتوو</button>
+        </div>
+
+        <!-- Results / Review Section -->
+        <div id="result-section" class="hidden">
+            <h2>ئەنجامی تاقیکردنەوەکەت</h2>
+            <p id="finalScoreText" style="text-align: center; font-size: 20px; font-weight: bold; color: #2c3e50;"></p>
+            <div id="reviewContainer"></div>
+            <button onclick="location.reload()">گەڕانەوە بۆ سەرەتا</button>
+        </div>
+
+        <!-- Teacher Access Link & Creator Reset -->
+        <div class="teacher-footer">
+            <button class="teacher-btn-link" onclick="openTeacherDashboard()">چوونەژوورەوەی مامۆستا</button>
+            <button class="teacher-btn-link reset-btn-link" onclick="resetForTesting()">🔄 ڕێستکردنەوە بۆ تست</button>
+        </div>
+    </div>
+
+    <!-- 2. TEACHER DASHBOARD SECTION -->
+    <div id="dashboard-section" class="hidden">
+        <h2>داشبۆردی مامۆستا</h2>
+        
+        <div class="stats-grid">
+            <div class="stat-card">
+                <h3>کۆی بەشداربووان</h3>
+                <p id="totalStudents">0</p>
+            </div>
+            <div class="stat-card">
+                <h3>تێکڕای نمرە</h3>
+                <p id="avgScore">0</p>
+            </div>
+            <div class="stat-card">
+                <h3>ڕێژەی دەرچوون</h3>
+                <p id="passRate">0%</p>
+            </div>
+        </div>
+
+        <div class="form-group">
+            <input type="text" id="searchInput" placeholder="گەڕان بە دوای ناو یان پۆلدا..." onkeyup="filterTable()">
+        </div>
+
+        <table>
+            <thead>
+                <tr>
+                    <th>ناوی قوتابی</th>
+                    <th>پۆل و لق</th>
+                    <th>نمرە</th>
+                    <th>کات</th></tr>
+            </thead>
+            <tbody id="resultsTableBody">
+                <!-- Data loads here -->
+            </tbody>
+        </table>
+
+        <br>
+        <button style="background-color: #e74c3c;" onclick="logoutTeacher()">چوونەدەرەوە</button>
+    </div>
+
+</div>
+
+<script>
+    // --- SUPABASE CONFIGURATION ---
+    const SUPABASE_URL = "https://efgueganwiehnnwjsmys.supabase.co";
+    const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVmZ3VlZ2Fud2llaG5ud2pzbXlzIicm9sZSI6ImFub24iLCJpYXQiOjE3OTA1OTc5OTksImV4cCI6MjEwNjE3Mzk5OX0.oCAbcFxOtnqTJWEYOFJqY6cZSTzz21LdtJONMsC1G4A";
+    const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+    const TEACHER_PASSWORD = "83830813"; 
+    let allResults = [];
+
+    // --- 5 QUESTIONS DATA (Pure Arabic) ---
+    const questions = [
+        {
+            question: "١. عيّن أداة النفي في الجملة الآتية: (ما جاءَ أحَدٌ)",
+            options: ["ما", "جاءَ", "أحَدٌ"],
+            answer: "ما"
+        },
+        {
+            question: "٢. ما نوع (لا) في الجملة الآتية؟ (لا رَجُلَ في الدارِ)",
+            options: ["نافية للجنس", "نافية غير عاملة", "زائدة"],
+            answer: "نافية للجنس"
+        },
+        {
+            question: "٣. ما هي أداة الجزم في الجملة الآتية؟ (لا تَکذِبْ)",
+            options: ["لا", "تَکذِبْ", "لا توجد أداة"],
+            answer: "لا"
+        },
+        {
+            question: "٤. ما نوع (ما) في الجملة الآتية؟ (ما حُمَداءُ إلَّا صادقون)",
+            options: ["نافية مهملة", "موصولة", "حرف استفهام"],
+            answer: "نافية مهملة"
+        },
+        {
+            question: "٥. في جملة (ليسَ الكذبُ منقبةً)، ما هو اسم (ليسَ)؟",
+            options: ["الكذبُ", "منقبةً", "ضمير مستتر"],
+            answer: "الكذبُ"
+        }
+    ];
+
+    let currentQuestionIndex = 0;
+    let userAnswers = [];
+    let timer;
+    let timeLeft = 60;
+
+    window.onload = function() {
+        if (localStorage.getItem('arabic_exam_done') === 'true') {
+            document.getElementById('register-form').innerHTML = `
+                <div style="text-align: center; color: #c0392b; font-weight: bold; padding: 20px; font-size: 18px;">
+                    تاقیکردنەوەکە کراوە و تەواو بووە، ناتوانیت دووبارە دەست پێبکەیتەوە!
+                </div>
+            `;
+        }
+    };
+
+    function resetForTesting() {
+        const pass = prompt("بۆ ڕێستکردنەوە، پاسۆردی مامۆستا بنووسە:");
+        if (pass === TEACHER_PASSWORD) {
+            localStorage.removeItem('arabic_exam_done');
+            alert('سیستمەکە بۆ تێست ڕێست کرایەوە!');
+            location.reload();
+        } else if (pass !== null) {
+            alert('پاسۆرد هەڵەیە!');
+        }
+    }
+
+    function enforceRestriction(inputElement) {
+        const originalValue = inputElement.value;
+        const cleanedValue = originalValue.replace(/[^\u0600-\u06FFپژگچڤڕڵۆێە\s\-]/g, '');
+        if (originalValue !== cleanedValue) {
+            alert('تەنها پیتی کوردی یان عەرەبی و هێمای گونجاو ڕێگەپێدراوە!');
+            inputElement.value = cleanedValue;
+        }
+    }
+
+    function startExam() {
+        if (localStorage.getItem('arabic_exam_done') === 'true') {
+            alert('ناتوانیت دووبارە تاقیکردنەوە ئەنجام بدەیتەوە!');
+            return;
+        }
+
+        const nameInput = document.getElementById('studentName');
+        const classInput = document.getElementById('studentClass');
+        
+        const name = nameInput.value.trim();
+        const studentClass = classInput.value.trim();
+
+        if (!name) {
+            alert('ڕێگری: خانەی ناو بەتاڵە!');
+            nameInput.focus();
+            return;
+        }
+
+        const nameWords = name.split(/\s+/).filter(word => word.length > 0);
+        if (nameWords.length < 2) {
+            alert('ڕێگری: دەبێت ناوی خۆت و ناوی باوکت بنووسیت.');
+            nameInput.focus();
+            return;
+        }
+
+        if (!studentClass) {
+            alert('ڕێگری: خانەی پۆل بەتاڵە!');
+            classInput.focus();
+            return;
+        }
+
+        document.getElementById('register-form').classList.add('hidden');
+        document.getElementById('quiz-form').classList.remove('hidden');
+        loadQuestion();
+    }
+
+    function loadQuestion() {
+        clearInterval(timer);
+        timeLeft = 60;
+        document.getElementById('timeLeft').innerText = timeLeft;
+
+        if (currentQuestionIndex >= questions.length) {
+            submitExam();
+            return;
+        }
+
+        const q = questions[currentQuestionIndex];
+        const container = document.getElementById('questionContainer');
+        
+        let optionsHTML = '';
+        q.options.forEach((opt) => {
+            optionsHTML += `
+                <label dir="rtl">
+                    <input type="radio" name="current_q" value="${opt}"> ${opt}
+                </label>
+            `;
+        });
+
+        container.innerHTML = `
+            <div class="question-box">
+                <p><b>${q.question}</b></p>
+                <div class="options">${optionsHTML}</div>
+            </div>
+        `;
+
+        timer = setInterval(() => {
+            timeLeft--;
+            document.getElementById('timeLeft').innerText = timeLeft;
+            if (timeLeft <= 0) {
+                clearInterval(timer);
+                nextQuestion();
+            }
+        }, 1000);
+    }
+
+    function nextQuestion() {
+        clearInterval(timer);
+        const selected = document.querySelector('input[name="current_q"]:checked');
+        const answerValue = selected ? selected.value : "وەڵام نەدراوەتەوە";
+        
+        userAnswers.push(answerValue);
+        currentQuestionIndex++;
+
+        if (currentQuestionIndex < questions.length) {
+            loadQuestion();
+        } else {
+            submitExam();
+        }
+    }
+
+    async function submitExam() {
+        document.getElementById('quiz-form').classList.add('hidden');
+        document.getElementById('result-section').classList.remove('hidden');
+
+        let score = 0;
+        questions.forEach((q, idx) => {
+            if (userAnswers[idx] === q.answer) {
+                score += 1; 
+            }
+        });
+
+        document.getElementById('finalScoreText').innerText = `نمرەکەی تۆ: ${score} لە 5`;
+        localStorage.setItem('arabic_exam_done', 'true');
+
+        let reviewHTML = '<h3>پیاچوونەوەی وەڵامەکان:</h3>';
+        questions.forEach((q, idx) => {
+            const userAns = userAnswers[idx];
+            const isCorrect = userAns === q.answer;
+            
+            reviewHTML += `
+                <div class="review-item" style="background: ${isCorrect ? '#e8f8f5' : '#fdedec'};">
+                    <p><b>${q.question}</b></p>
+                    <p>وەڵامی تۆ: <span class="${isCorrect ? 'correct-answer' : 'wrong-answer'}">${userAns}</span></p>
+                    ${!isCorrect ? `<p>وەڵامی ڕاست: <span class="correct-answer">${q.answer}</span></p>` : ''}
+                </div>
+            `;
+        });
+        document.getElementById('reviewContainer').innerHTML = reviewHTML;
+
+        // Save student_name, class_group, and score to Supabase
+        const name = document.getElementById('studentName').value;
+        const studentClass = document.getElementById('studentClass').value;
+
+        const { error } = await supabaseClient
+            .from('exam_results')
+            .insert([{ student_name: name, class_group: studentClass, score: score }]);
+
+        if (error) {
+            console.error("هەڵە لە تۆمارکردنی ئەنجام:", error.message);
+        }
+    }
+
+    function openTeacherDashboard() {
+        const pass = prompt("وشەی تێپەڕی مامۆستا بنووسە:");
+        if (pass === TEACHER_PASSWORD) {
+            document.getElementById('student-section').classList.add('hidden');
+            document.getElementById('dashboard-section').classList.remove('hidden');
+            loadTeacherData();
+        } else if (pass !== null) {
+            alert("وشەی تێپەڕ هەڵەیە!");
+        }
+    }
+
+    function logoutTeacher() {
+        document.getElementById('dashboard-section').classList.add('hidden');
+        document.getElementById('student-section').classList.remove('hidden');
+    }
+
+    async function loadTeacherData() {
+        const { data, error } = await supabaseClient
+            .from('exam_results')
+            .select('*')
+            .order('created_at', { ascending: false });
+
+        if (error) {
+            alert("هەڵە لە هێنانی زانیارییەکان: " + error.message);
+            return;
+        }
+
+        allResults = data || [];
+        displayData(allResults);
+        calculateStats(allResults);
+    }
+
+    function displayData(data) {
+        const tbody = document.getElementById('resultsTableBody');
+        tbody.innerHTML = '';
+
+        if(data.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="4">هیچ داتایەک نەدۆزرایەوە</td></tr>';
+            return;
+        }
+
+        data.forEach(row => {
+            const tr = document.createElement('tr');
+            tr.innerHTML = `
+                <td>${row.student_name}</td>
+                <td>${row.class_group}</td>
+                <td>${row.score} / 5</td>
+                <td>${new Date(row.created_at).toLocaleString('ku-IQ')}</td>
+            `;
+            tbody.appendChild(tr);
+        });
+    }
+
+    function calculateStats(data) {
+        const total = data.length;
+        document.getElementById('totalStudents').innerText = total;
+
+        if (total === 0) {
+            document.getElementById('avgScore').innerText = '0';
+            document.getElementById('passRate').innerText = '0%';
+            return;
+        }
+
+        let sum = 0;
+        let passCount = 0;
+
+        data.forEach(row => {
+            sum += Number(row.score);
+            if (Number(row.score) >= 3) passCount++; 
+        });
+
+        const avg = (sum / total).toFixed(1);
+        const rate = Math.round((passCount / total) * 100);
+
+        document.getElementById('avgScore').innerText = avg + ' / 5';
+        document.getElementById('passRate').innerText = rate + '%';
+    }
+
+    function filterTable() {
+        const query = document.getElementById('searchInput').value.toLowerCase();
+        const filtered = allResults.filter(row => 
+            row.student_name.toLowerCase().includes(query) || 
+            row.class_group.toLowerCase().includes(query)
+        );
+        displayData(filtered);
+    }
+</script>
+
+</body>
+</html>
