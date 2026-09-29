@@ -109,18 +109,19 @@
 
         .stats-grid {
             display: grid;
-            grid-template-columns: repeat(3, 1fr);
+            grid-template-columns: repeat(4, 1fr);
             gap: 15px;
             margin-bottom: 25px;
         }
         .stat-card {
             background: #ecf0f1;
-            padding: 15px;
+            padding: 12px;
             border-radius: 8px;
             text-align: center;
+            overflow: hidden;
         }
-        .stat-card h3 { margin: 0 0 10px 0; font-size: 14px; color: #7f8c8d; }
-        .stat-card p { margin: 0; font-size: 20px; font-weight: bold; color: #2c3e50; }
+        .stat-card h3 { margin: 0 0 8px 0; font-size: 12px; color: #7f8c8d; }
+        .stat-card p { margin: 0; font-size: 13px; font-weight: bold; color: #2c3e50; line-height: 1.3; }
         table {
             width: 100%;
             border-collapse: collapse;
@@ -133,6 +134,14 @@
             font-size: 14px;
         }
         th { background-color: #f8f9fa; color: #2c3e50; }
+        
+        .manage-q-box {
+            background: #fdfefe;
+            border: 1px solid #d5d8dc;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 15px;
+        }
     </style>
 </head>
 <body>
@@ -150,8 +159,8 @@
                 <input type="text" id="studentName" value="" placeholder="" style="background-color: #ffffff;" oninput="enforceRestriction(this)">
             </div>
             <div class="form-group">
-                <label>پۆل و بەش و لق (بە کوردی):</label>
-                <input type="text" id="studentClass" oninput="enforceRestriction(this)" placeholder="زانستی / وێژەیی - لق">
+                <label>پۆل و بەش و لق (بە کوردی - بۆ نموونە: زانستی الف):</label>
+                <input type="text" id="studentClass" oninput="enforceRestriction(this)" placeholder="زانستی الف">
             </div>
             <button onclick="startExam()">دەستپێکردنی تاقیکردنەوە</button>
         </div>
@@ -182,37 +191,59 @@
     <div id="dashboard-section" class="hidden">
         <h2>داشبۆردی مامۆستا</h2>
         
-        <div class="stats-grid">
-            <div class="stat-card">
-                <h3>کۆی بەشداربووان</h3>
-                <p id="totalStudents">0</p>
-            </div>
-            <div class="stat-card">
-                <h3>تێکڕای نمرە</h3>
-                <p id="avgScore">0</p>
-            </div>
-            <div class="stat-card">
-                <h3>ڕێژەی دەرچوون</h3>
-                <p id="passRate">0%</p>
-            </div>
+        <div style="margin-bottom: 20px; display: flex; gap: 10px;">
+            <button onclick="openQuestionManager()" style="background-color: #e67e22; flex: 1;">⚙️ بەڕێوەبردنی پرسیارەکان</button>
+            <button onclick="backToDashboardMain()" id="backToMainBtn" class="hidden" style="background-color: #7f8c8d; width: auto;">گەڕانەوە بۆ خشتەکان</button>
         </div>
 
-        <div class="form-group">
-            <input type="text" id="searchInput" placeholder="گەڕان بە دوای ناو یان پۆلدا..." onkeyup="filterTable()">
+        <!-- Main Dashboard View -->
+        <div id="dashboard-main-view">
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <h3>کۆی بەشداربووان</h3>
+                    <p id="totalStudents">0</p>
+                </div>
+                <div class="stat-card">
+                    <h3>تێکڕای نمرە</h3>
+                    <p id="avgScore">0</p>
+                </div>
+                <div class="stat-card">
+                    <h3>ڕێژەی دەرچوون</h3>
+                    <p id="passRate">0%</p>
+                </div>
+                <div class="stat-card">
+                    <h3>زۆرترین پرسیاری غەڵات</h3>
+                    <p id="mostMistakeQ" style="color: #c0392b;">هیچ</p>
+                </div>
+            </div>
+
+            <div class="form-group">
+                <input type="text" id="searchInput" placeholder="گەڕان بە دوای ناو یان پۆلدا..." onkeyup="filterTable()">
+            </div>
+
+            <table>
+                <thead>
+                    <tr>
+                        <th>ناوی قوتابی</th>
+                        <th>پۆل و لق</th>
+                        <th>نمرە</th>
+                        <th>کات</th>
+                    </tr>
+                </thead>
+                <tbody id="resultsTableBody">
+                    <!-- Data loads here -->
+                </tbody>
+            </table>
         </div>
 
-        <table>
-            <thead>
-                <tr>
-                    <th>ناوی قوتابی</th>
-                    <th>پۆل و لق</th>
-                    <th>نمرە</th>
-                    <th>کات</th></tr>
-            </thead>
-            <tbody id="resultsTableBody">
-                <!-- Data loads here -->
-            </tbody>
-        </table>
+        <!-- Question Manager View -->
+        <div id="question-manager-view" class="hidden">
+            <h3>دەستکاری و زیادکردنی پرسیارەکان</h3>
+            <p style="font-size: 13px; color: #7f8c8d; text-align: center;">لێرە دەتوانیت پرسیارەکان بگۆڕیت و بە پاشەکەوتکردنیان ماوەی ٤٨ کاتژمێری نوێ بۆ تاقیکردنەوەکە دەستپێدەکاتەوە.</p>
+            <div id="editorQuestionsContainer"></div>
+            <button onclick="addNewQuestionField()" style="background-color: #27ae60; margin-bottom: 15px;">+ زیادکردنی پرسیاری نوێ</button>
+            <button onclick="saveQuestionsToCloud()" style="background-color: #2980b9;">💾 پاشەکەوتکردن و دەستپێکردنی ٤٨ کاتژمێر</button>
+        </div>
 
         <br>
         <button style="background-color: #e74c3c;" onclick="logoutTeacher()">چوونەدەرەوە</button>
@@ -229,8 +260,8 @@
     const TEACHER_PASSWORD = "83830813"; 
     let allResults = [];
 
-    // --- 5 QUESTIONS DATA (Pure Arabic) ---
-    const questions = [
+    // --- DEFAULT QUESTIONS FALLBACK ---
+    let questions = [
         {
             question: "١. عيّن أداة النفي في الجملة الآتية: (ما جاءَ أحَدٌ)",
             options: ["ما", "جاءَ", "أحَدٌ"],
@@ -263,7 +294,37 @@
     let timer;
     let timeLeft = 60;
 
-    window.onload = function() {
+    window.onload = async function() {
+        // Check 48 hours and load questions from Supabase exam_config
+        try {
+            const { data, error } = await supabaseClient
+                .from('exam_config')
+                .select('*')
+                .eq('id', 1)
+                .single();
+
+            if (data && data.questions) {
+                questions = typeof data.questions === 'string' ? JSON.parse(data.questions) : data.questions;
+                
+                if (data.updated_at) {
+                    const updatedAt = new Date(data.updated_at);
+                    const now = new Date();
+                    const hoursPassed = (now - updatedAt) / (1000 * 60 * 60);
+
+                    if (hoursPassed > 48) {
+                        document.getElementById('register-form').innerHTML = `
+                            <div style="text-align: center; color: #c0392b; font-weight: bold; padding: 20px; font-size: 18px;">
+                                ماوەی ٤٨ کاتژمێری ئەم تاقیکردنەوەیە بەسەرچووە!
+                            </div>
+                        `;
+                        return;
+                    }
+                }
+            }
+        } catch (e) {
+            console.log("Using default questions or table config not initialized yet.");
+        }
+
         if (localStorage.getItem('arabic_exam_done') === 'true') {
             document.getElementById('register-form').innerHTML = `
                 <div style="text-align: center; color: #c0392b; font-weight: bold; padding: 20px; font-size: 18px;">
@@ -319,7 +380,15 @@
         }
 
         if (!studentClass) {
-            alert('ڕێگری: خانەی پۆل بەتاڵە!');
+            alert('ڕێگری: خانەی پۆل و لق بەتاڵە!');
+            classInput.focus();
+            return;
+        }
+
+        // Strict validation: must contain at least 2 words (e.g. branch and section)
+        const classWords = studentClass.split(/\s+/).filter(word => word.length > 0);
+        if (classWords.length < 2) {
+            alert('ڕێگری: دەبێت هەردوو بەشی لق و پۆل/بەش بنووسیت (بۆ نموونە: زانستی الف)');
             classInput.focus();
             return;
         }
@@ -394,7 +463,7 @@
             }
         });
 
-        document.getElementById('finalScoreText').innerText = `نمرەکەی تۆ: ${score} لە 5`;
+        document.getElementById('finalScoreText').innerText = `نمرەکەی تۆ: ${score} لە ${questions.length}`;
         localStorage.setItem('arabic_exam_done', 'true');
 
         let reviewHTML = '<h3>پیاچوونەوەی وەڵامەکان:</h3>';
@@ -412,13 +481,13 @@
         });
         document.getElementById('reviewContainer').innerHTML = reviewHTML;
 
-        // Save student_name, class_group, and score to Supabase
         const name = document.getElementById('studentName').value;
         const studentClass = document.getElementById('studentClass').value;
+        const encodedData = studentClass + " [ANS:" + JSON.stringify(userAnswers) + "]";
 
         const { error } = await supabaseClient
             .from('exam_results')
-            .insert([{ student_name: name, class_group: studentClass, score: score }]);
+            .insert([{ student_name: name, class_group: encodedData, score: score }]);
 
         if (error) {
             console.error("هەڵە لە تۆمارکردنی ئەنجام:", error.message);
@@ -468,10 +537,14 @@
 
         data.forEach(row => {
             const tr = document.createElement('tr');
+            let classText = row.class_group || '';
+            if (classText.includes(' [ANS:')) {
+                classText = classText.split(' [ANS:')[0];
+            }
             tr.innerHTML = `
                 <td>${row.student_name}</td>
-                <td>${row.class_group}</td>
-                <td>${row.score} / 5</td>
+                <td>${classText}</td>
+                <td>${row.score} / ${questions.length}</td>
                 <td>${new Date(row.created_at).toLocaleString('ku-IQ')}</td>
             `;
             tbody.appendChild(tr);
@@ -485,31 +558,153 @@
         if (total === 0) {
             document.getElementById('avgScore').innerText = '0';
             document.getElementById('passRate').innerText = '0%';
+            document.getElementById('mostMistakeQ').innerText = 'هیچ';
             return;
         }
 
         let sum = 0;
         let passCount = 0;
+        let mistakeCounts = new Array(questions.length).fill(0);
 
         data.forEach(row => {
             sum += Number(row.score);
-            if (Number(row.score) >= 3) passCount++; 
+            if (Number(row.score) >= Math.ceil(questions.length / 2)) passCount++; 
+
+            if (row.class_group && row.class_group.includes(' [ANS:')) {
+                try {
+                    const ansPart = row.class_group.split(' [ANS:')[1].split(']')[0];
+                    const studentAns = JSON.parse(ansPart);
+                    questions.forEach((q, idx) => {
+                        if (studentAns[idx] !== q.answer) {
+                            mistakeCounts[idx]++;
+                        }
+                    });
+                } catch(e) {console.error("Error parsing answers", e);
+                }
+            }
         });
 
         const avg = (sum / total).toFixed(1);
         const rate = Math.round((passCount / total) * 100);
 
-        document.getElementById('avgScore').innerText = avg + ' / 5';
+        document.getElementById('avgScore').innerText = avg + ' / ' + questions.length;
         document.getElementById('passRate').innerText = rate + '%';
+
+        let maxMistakes = Math.max(...mistakeCounts);
+        if (maxMistakes === 0) {
+            document.getElementById('mostMistakeQ').innerText = 'هیچ غەڵاتێک نییە';
+        } else {
+            let worstQuestions = [];
+            mistakeCounts.forEach((count, idx) => {
+                if (count === maxMistakes) {
+                    worstQuestions.push(`پرسیاری ${idx + 1}`);
+                }
+            });
+            document.getElementById('mostMistakeQ').innerHTML = `${worstQuestions.join(', ')} <br><span style="font-size: 10px; color: #555; font-weight: normal;">زۆربەی قوتابیان لەم پرسیارە هەڵەیان کردووە</span>`;
+        }
     }
 
     function filterTable() {
         const query = document.getElementById('searchInput').value.toLowerCase();
-        const filtered = allResults.filter(row => 
-            row.student_name.toLowerCase().includes(query) || 
-            row.class_group.toLowerCase().includes(query)
-        );
+        const filtered = allResults.filter(row => {
+            const cleanClass = (row.class_group || '').split(' [ANS:')[0];
+            return row.student_name.toLowerCase().includes(query) || 
+                   cleanClass.toLowerCase().includes(query);
+        });
         displayData(filtered);
+    }
+
+    // --- QUESTION MANAGER FOR TEACHER ---
+    function openQuestionManager() {
+        document.getElementById('dashboard-main-view').classList.add('hidden');
+        document.getElementById('backToMainBtn').classList.remove('hidden');
+        document.getElementById('question-manager-view').classList.remove('hidden');
+        renderEditorQuestions();
+    }
+
+    function backToDashboardMain() {
+        document.getElementById('question-manager-view').classList.add('hidden');
+        document.getElementById('backToMainBtn').classList.add('hidden');
+        document.getElementById('dashboard-main-view').classList.remove('hidden');
+    }
+
+    function renderEditorQuestions() {
+        const container = document.getElementById('editorQuestionsContainer');
+        container.innerHTML = '';
+
+        questions.forEach((q, index) => {
+            let box = document.createElement('div');
+            box.className = 'manage-q-box';
+            box.innerHTML = `
+                <h4>پرسیاری ${index + 1}</h4>
+                <div class="form-group">
+                    <label>دەقی پرسیار:</label>
+                    <input type="text" id="q_text_${index}" value="${q.question}">
+                </div>
+                <div class="form-group">
+                    <label>هەڵبژاردنەکان (بە کۆما جیایان بکەرەوە بۆ نموونە: ما, جاء, أحد):</label>
+                    <input type="text" id="q_opts_${index}" value="${q.options.join(', ')}">
+                </div>
+                <div class="form-group">
+                    <label>وەڵامی ڕاست:</label>
+                    <input type="text" id="q_ans_${index}" value="${q.answer}">
+                </div>
+                <button onclick="removeQuestionField(${index})" style="background-color: #c0392b; width: auto; padding: 6px 12px; font-size: 13px;">سڕینەوەی ئەم پرسیارە</button>
+            `;
+            container.appendChild(box);
+        });
+    }
+
+    function addNewQuestionField() {
+        questions.push({
+            question: "پرسیاری نوێ...",
+            options: ["هەڵبژاردەی ١", "هەڵبژاردەی ٢", "هەڵبژاردەی ٣"],
+            answer: "هەڵبژاردەی ١"
+        });
+        renderEditorQuestions();
+    }
+
+    function removeQuestionField(index) {
+        if (questions.length <= 1) {
+            alert('دەبێت لە ١ پرسیار کەمتر نەبێت!');
+            return;
+        }
+        questions.splice(index, 1);
+        renderEditorQuestions();
+    }
+
+    async function saveQuestionsToCloud() {
+        let newQuestions = [];
+        for (let i = 0; i < questions.length; i++) {
+            const qText = document.getElementById(`q_text_${i}`).value.trim();
+            const qOpts = document.getElementById(`q_opts_${i}`).value.split(',').map(s => s.trim()).filter(s => s.length > 0);
+            const qAns = document.getElementById(`q_ans_${i}`).value.trim();
+
+            if (!qText || qOpts.length === 0 || !qAns) {
+                alert(`تکایە خانەکانی پرسیاری ${i + 1} بە تەواوی پڕبکەرەوە!`);
+                return;
+            }
+
+            newQuestions.push({
+                question: qText,
+                options: qOpts,
+                answer: qAns
+            });
+        }
+
+        const nowIso = new Date().toISOString();
+
+        const { error } = await supabaseClient
+            .from('exam_config')
+            .upsert([{ id: 1, questions: newQuestions, updated_at: nowIso }]);
+
+        if (error) {
+            alert("هەڵە لە پاشەکەوتکردن: " + error.message);
+        } else {
+            alert("پرسیارەکان بە سەرکەوتوویی پاشەکەوت کران و ماوەی ٤٨ کاتژمێری نوێ دەستی پێکرد!");
+            questions = newQuestions;
+            backToDashboardMain();
+        }
     }
 </script>
 
