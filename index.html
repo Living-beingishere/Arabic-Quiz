@@ -14,6 +14,10 @@
             padding: 20px;
             direction: rtl;
             text-align: right;
+            user-select: none;
+            -webkit-user-select: none;
+            -moz-user-select: none;
+            -ms-user-select: none;
         }
         .container {
             max-width: 700px;
@@ -26,7 +30,7 @@
         h2, h3 { color: #2c3e50; text-align: center; }
         .form-group { margin-bottom: 20px; }
         label { display: block; margin-bottom: 8px; font-weight: bold; color: #34495e; }
-        input {
+        input, select {
             width: 100%;
             padding: 12px;
             border: 1px solid #ccc;
@@ -48,6 +52,17 @@
         button:hover { background-color: #2980b9; }
         .hidden { display: none !important; }
         
+        .restriction-box {
+            background-color: #fadbd8;
+            color: #922b21;
+            padding: 20px;
+            border-radius: 8px;
+            text-align: center;
+            font-size: 16px;
+            font-weight: bold;
+            margin-bottom: 20px;
+        }
+
         .question-box {
             margin-bottom: 20px;
             padding: 20px;
@@ -154,15 +169,34 @@
         
         <!-- Registration Form -->
         <div id="register-form">
-            <div class="form-group">
-                <label>ناوی قوتابی و ناوی باوک (بە کوردی):</label>
-                <input type="text" id="studentName" placeholder="" oninput="enforceRestriction(this)">
+            <div id="restrictionBox" class="restriction-box hidden">
+                ⚠ ئاگاداری: تۆ پێشتر ئەم تاقیکردنەوەیەت ئەنجام داوە! ڕێگەت پێ نادرێت دووبارە بەشداری بکەیتەوە.
             </div>
-            <div class="form-group">
-                <label>پۆل و بەش و لق (بە کوردی - بۆ نموونە: زانستی الف):</label>
-                <input type="text" id="studentClass" oninput="enforceRestriction(this)" placeholder="زانستی الف">
+
+            <div id="formInputsContainer">
+                <div class="form-group">
+                    <label>ناوی قوتابی و ناوی باوک (بە کوردی):</label>
+                    <input type="text" id="studentName" placeholder="ناوی تەواوی قوتابی" oninput="enforceNameRestriction(this)">
+                </div>
+
+                <div class="form-group">
+                    <label>ناوی قوتابخانە (بە کوردی):</label>
+                    <input type="text" id="studentSchool" placeholder="ناوی قوتابخانە" oninput="enforceNameRestriction(this)">
+                </div>
+                
+                <div class="form-group">
+                    <label>پۆل و لق (بەش و پیت):</label>
+                    <div style="display: flex; gap: 10px;">
+                        <select id="studentBranch" style="flex: 2;">
+                            <option value="زانستی">زانستی</option>
+                            <option value="وێژەیی">وێژەیی</option>
+                        </select>
+                        <input type="text" id="studentLetter" maxlength="1" placeholder="پیت (هەر پیتێکی کوردی)" style="flex: 1; text-align: center; font-weight: bold;" oninput="enforceLetterRestriction(this)">
+                    </div>
+                </div>
+
+                <button onclick="startExam()">دەستپێکردنی تاقیکردنەوە</button>
             </div>
-            <button onclick="startExam()">دەستپێکردنی تاقیکردنەوە</button>
         </div>
 
         <!-- Quiz Questions Container -->
@@ -254,6 +288,22 @@
 </div>
 
 <script>
+    // --- SCREENSHOT / SCREEN RECORDING RESTRICTIONS ---
+    document.addEventListener('contextmenu', function(e) {
+        e.preventDefault();
+    });
+
+    document.addEventListener('keydown', function(e) {
+        // Prevent PrintScreen, F12, Ctrl+Shift+I, Ctrl+U, Ctrl+S
+        if (e.key === 'PrintScreen' || e.keyCode === 44 || 
+            (e.ctrlKey && e.shiftKey && (e.key === 'I' || e.key === 'i' || e.key === 'J' || e.key === 'j' || e.key === 'C' || e.key === 'c')) ||
+            (e.ctrlKey && (e.key === 'U' || e.key === 'u' || e.key === 'S' || e.key === 's'))) {
+            e.preventDefault();
+            alert('ئەم کردارە ڕێگەپێدراو نییە!');
+            return false;
+        }
+    });
+
     // --- SUPABASE CONFIGURATION ---
     const SUPABASE_URL = "https://efgueganwiehnnwjsmys.supabase.co";
     const SUPABASE_ANON_KEY = "sb_publishable_TjB3ENNdK2lqYp4VFuPEmQ_0JMaM6_s";
@@ -263,7 +313,7 @@
 
     // --- TELEGRAM CONFIGURATION ---
     const TELEGRAM_BOT_TOKEN = "8698684669:AAE81Y0XZaCjcx3xh8BsQP-czmrm83BnrHw"; 
-    const TELEGRAM_CHAT_ID = "5621747053"; // <--- لێرە چات ئایدییەکەی خۆت دابنە
+    const TELEGRAM_CHAT_ID = "5621747053"; 
 
     let allResults = [];
     let currentExamUpdatedAt = '';
@@ -327,20 +377,23 @@
                         `;
                         return;
                     }
+                }
 
-                    const lastTakenVersion = localStorage.getItem('arabic_exam_updated_at');
-                    if (lastTakenVersion === data.updated_at && localStorage.getItem('arabic_exam_done') === 'true') {
-                        document.getElementById('register-form').innerHTML = `
-                            <div style="text-align: center; color: #c0392b; font-weight: bold; padding: 20px; font-size: 18px;">
-                                تاقیکردنەوەکە کراوە و تەواو بووە، ناتوانیت دووبارە دەست پێبکەیتەوە!
-                            </div>
-                        `;
-                        return;
-                    }
+                const serverVersion = data.updated_at || 'default';
+                const localDone = localStorage.getItem('arabic_exam_done');
+                const localVersion = localStorage.getItem('arabic_exam_version');
+
+                if (localDone === 'true' && localVersion === serverVersion) {
+                    document.getElementById('restrictionBox').classList.remove('hidden');
+                    document.getElementById('formInputsContainer').classList.add('hidden');
                 }
             }
         } catch (e) {
             console.log("Using default questions.", e);
+            if (localStorage.getItem('arabic_exam_done') === 'true') {
+                document.getElementById('restrictionBox').classList.remove('hidden');
+                document.getElementById('formInputsContainer').classList.add('hidden');
+            }
         }
     };
 
@@ -348,7 +401,7 @@
         const pass = prompt("بۆ ڕێستکردنەوە، پاسۆردی مامۆستا بنووسە:");
         if (pass === TEACHER_PASSWORD) {
             localStorage.removeItem('arabic_exam_done');
-            localStorage.removeItem('arabic_exam_updated_at');
+            localStorage.removeItem('arabic_exam_version');
             alert('سیستمەکە بۆ تێست ڕێست کرایەوە!');
             location.reload();
         } else if (pass !== null) {
@@ -356,7 +409,7 @@
         }
     }
 
-    function enforceRestriction(inputElement) {
+    function enforceNameRestriction(inputElement) {
         const originalValue = inputElement.value;
         const cleanedValue = originalValue.replace(/[^\u0600-\u06FFپژگچڤڕڵۆێە\s\-]/g, '');
         if (originalValue !== cleanedValue) {
@@ -365,18 +418,41 @@
         }
     }
 
+    function enforceLetterRestriction(inputElement) {
+        const originalValue = inputElement.value;
+        const cleanedValue = originalValue.replace(/[^\u0600-\u06FFپژگچڤڕڵۆێە]/g, '');
+        if (originalValue !== cleanedValue) {
+            alert('تەنها پيتي كوردی ڕێگەپێدراوە!');
+        }
+        inputElement.value = cleanedValue.slice(0, 1);
+    }
+
+    function normalizeClassGroup(group) {
+        if (!group) return "زانستی نەناسراو";
+        let g = group.trim();
+        g = g.replace(/الف|الف|ئەلف/g, 'أ');
+        return g.replace(/\s+/g, ' ');
+    }
+
     function startExam() {
-        const lastTakenVersion = localStorage.getItem('arabic_exam_updated_at');
-        if (currentExamUpdatedAt && lastTakenVersion === currentExamUpdatedAt && localStorage.getItem('arabic_exam_done') === 'true') {
+        const serverVersion = currentExamUpdatedAt || 'default';
+        const localDone = localStorage.getItem('arabic_exam_done');
+        const localVersion = localStorage.getItem('arabic_exam_version');
+
+        if (localDone === 'true' && localVersion === serverVersion) {
             alert('ناتوانیت دووبارە تاقیکردنەوە ئەنجام بدەیتەوە!');
             return;
         }
 
         const nameInput = document.getElementById('studentName');
-        const classInput = document.getElementById('studentClass');
+        const schoolInput = document.getElementById('studentSchool');
+        const branchSelect = document.getElementById('studentBranch');
+        const letterInput = document.getElementById('studentLetter');
         
         const name = nameInput.value.trim();
-        const studentClass = classInput.value.trim();
+        const school = schoolInput.value.trim();
+        const branch = branchSelect.value;
+        const letter = letterInput.value.trim();
 
         if (!name || name.split(/\s+/).filter(w => w.length > 0).length < 2) {
             alert('تکایە ناوی تەواوی قوتابی و باوک بنووسە.');
@@ -384,14 +460,24 @@
             return;
         }
 
-        if (!studentClass || studentClass.split(/\s+/).filter(w => w.length > 0).length < 2) {
-            alert('تکایە پۆل و لق/بەش بە تەواوی بنووسە (بۆ نموونە: زانستی الف)');
-            classInput.focus();
+        if (!school) {
+            alert('تکایە ناوی قوتابخانە بنووسە.');
+            schoolInput.focus();
             return;
         }
 
+        if (!letter) {
+            alert('تکایە پیتەکەی پۆل بنووسە (بۆ نموونە: أ یان ب)');
+            letterInput.focus();
+            return;
+        }
+
+        const studentClass = branch + ' ' + letter;
+
         document.getElementById('register-form').classList.add('hidden');
         document.getElementById('quiz-form').classList.remove('hidden');
+        window.currentStudentClass = studentClass;
+        window.currentStudentSchool = school;
         loadQuestion();
     }
 
@@ -460,13 +546,13 @@
             }
         });
 
-        document.getElementById('finalScoreText').innerText = `نمرەکەی تۆ: ${score} لە ${questions.length}`;
+        const totalQAtExam = questions.length;
+
+        document.getElementById('finalScoreText').innerText = `نمرەکەی تۆ: ${score} لە ${totalQAtExam}`;
+        
+        const serverVersion = currentExamUpdatedAt || 'default';
         localStorage.setItem('arabic_exam_done', 'true');
-        if (currentExamUpdatedAt) {
-            localStorage.setItem('arabic_exam_updated_at', currentExamUpdatedAt);
-        } else {
-            localStorage.setItem('arabic_exam_updated_at', 'default');
-        }
+        localStorage.setItem('arabic_exam_version', serverVersion);
 
         let reviewHTML = '<h3>پیاچوونەوەی وەڵامەکان:</h3>';
         questions.forEach((q, idx) => {
@@ -484,19 +570,25 @@
         document.getElementById('reviewContainer').innerHTML = reviewHTML;
 
         const name = document.getElementById('studentName').value;
-        const studentClass = document.getElementById('studentClass').value;
+        const studentClass = window.currentStudentClass || "زانستی أ";
+        const schoolName = window.currentStudentSchool || "";
 
-        const { error } = await supabaseClient
-            .from('exam_results')
-            .insert([{ 
-                student_name: name, 
-                class_group: studentClass, 
-                score: score, 
-                answers: userAnswers 
-            }]);
+        // Only save to Supabase if school name contains "سۆلاڤ" or "solav"
+        const isSolav = schoolName.toLowerCase().includes('سۆلاڤ') || schoolName.toLowerCase().includes('solav');
 
-        if (error) {
-            console.error("هەڵە لە تۆمارکردنی ئەنجام:", error.message);
+        if (isSolav) {
+            const { error } = await supabaseClient
+                .from('exam_results')
+                .insert([{ 
+                    student_name: name, 
+                    class_group: studentClass, 
+                    score: score, 
+                    answers: userAnswers
+                }]);
+
+            if (error) {
+                console.error("هەڵە لە تۆمارکردنی ئەنجام:", error.message);
+            }
         }
     }
 
@@ -549,27 +641,34 @@
         const tbody = document.getElementById('resultsTableBody');
         tbody.innerHTML = '';
 
-        if(data.length === 0) {
+        if(!data || data.length === 0) {
             tbody.innerHTML = '<tr><td colspan="4">هیچ داتایەک نەدۆزرایەوە</td></tr>';
             return;
         }
 
         data.forEach(row => {
-            const studentAns = row.answers ? (Array.isArray(row.answers) ? row.answers : JSON.parse(row.answers)) : [];
+            let studentAns = [];
+            try {
+                if (row.answers) {
+                    studentAns = typeof row.answers === 'string' ? JSON.parse(row.answers) : row.answers;
+                }
+            } catch(err) {
+                studentAns = [];
+            }
             const totalQ = studentAns.length > 0 ? studentAns.length : questions.length;
             const tr = document.createElement('tr');
             tr.innerHTML = `
-                <td>${row.student_name}</td>
-                <td>${row.class_group}</td>
-                <td>${row.score} / ${totalQ}</td>
-                <td>${new Date(row.created_at).toLocaleString('ku-IQ')}</td>
+                <td>${row.student_name || 'نادیار'}</td>
+                <td>${row.class_group || 'نادیار'}</td>
+                <td>${row.score !== undefined ? row.score : 0} / ${totalQ}</td>
+                <td>${row.created_at ? new Date(row.created_at).toLocaleString('ku-IQ') : 'نادیار'}</td>
             `;
             tbody.appendChild(tr);
         });
     }
 
     function calculateStats(data) {
-        const total = data.length;
+        const total = data ? data.length : 0;
         document.getElementById('totalStudents').innerText = total;
 
         if (total === 0) {
@@ -581,18 +680,27 @@
 
         let sum = 0;
         let passCount = 0;
+        let totalQSum = 0;
         let mistakeCounts = new Array(questions.length).fill(0);
 
         data.forEach(row => {
-            sum += Number(row.score);
-            const studentAns = row.answers ? (Array.isArray(row.answers) ? row.answers : JSON.parse(row.answers)) : [];
+            sum += Number(row.score || 0);
+            let studentAns = [];
+            try {
+                if (row.answers) {
+                    studentAns = typeof row.answers === 'string' ? JSON.parse(row.answers) : row.answers;
+                }
+            } catch(e) {
+                studentAns = [];
+            }
             const totalQ = studentAns.length > 0 ? studentAns.length : questions.length;
+            totalQSum += totalQ;
             
-            if (Number(row.score) >= Math.ceil(totalQ / 2)) {
+            if (Number(row.score || 0) >= Math.ceil(totalQ / 2)) {
                 passCount++; 
             }
 
-            if (studentAns.length > 0) {
+            if (Array.isArray(studentAns) && studentAns.length > 0) {
                 questions.forEach((q, idx) => {
                     if (idx < studentAns.length) {
                         if (studentAns[idx] !== q.answer) {
@@ -604,9 +712,10 @@
         });
 
         const avg = (sum / total).toFixed(1);
+        const avgTotalQ = Math.round(totalQSum / total);
         const rate = Math.round((passCount / total) * 100);
 
-        document.getElementById('avgScore').innerText = avg + ' / ' + questions.length;
+        document.getElementById('avgScore').innerText = avg + ' / ' + avgTotalQ;
         document.getElementById('passRate').innerText = rate + '%';
 
         let maxMistakes = Math.max(...mistakeCounts);
@@ -630,8 +739,9 @@
     function filterTable() {
         const query = document.getElementById('searchInput').value.toLowerCase();
         const filtered = allResults.filter(row => {
-            return row.student_name.toLowerCase().includes(query) || 
-                   row.class_group.toLowerCase().includes(query);
+            const name = (row.student_name || '').toLowerCase();
+            const cls = (row.class_group || '').toLowerCase();
+            return name.includes(query) || cls.includes(query);
         });
         displayData(filtered);
     }
@@ -694,13 +804,6 @@
         renderEditorQuestions();
     }
 
-    function normalizeClassGroup(group) {
-        if (!group) return "نادیار";
-        let g = group.trim();
-        g = g.replace(/ا|أ|إ|آ|الف/g, 'ئەلف');
-        return g.replace(/\s+/g, ' ');
-    }
-
     async function saveQuestionsToCloud() {
         let newQuestions = [];
         for (let i = 0; i < questions.length; i++) {
@@ -736,7 +839,10 @@
             for (let [className, students] of Object.entries(groups)) {
                 reportText += `📂 پۆل / لق: ${className}\n`;
                 students.forEach((row, idx) => {
-                    let studentAns = row.answers ? (Array.isArray(row.answers) ? row.answers : JSON.parse(row.answers)) : [];
+                    let studentAns = [];
+                    try {
+                        studentAns = row.answers ? (Array.isArray(row.answers) ? row.answers : JSON.parse(row.answers)) : [];
+                    } catch(e) {}
                     let totalQ = studentAns.length > 0 ? studentAns.length : questions.length;
                     reportText += `  ${idx + 1}. ناو: ${row.student_name} | نمرە: ${row.score} / ${totalQ}\n`;
                 });
