@@ -542,11 +542,13 @@
         }
 
         data.forEach(row => {
+            const studentAns = row.answers ? (Array.isArray(row.answers) ? row.answers : JSON.parse(row.answers)) : [];
+            const totalQ = studentAns.length > 0 ? studentAns.length : questions.length;
             const tr = document.createElement('tr');
             tr.innerHTML = `
                 <td>${row.student_name}</td>
                 <td>${row.class_group}</td>
-                <td>${row.score} / ${questions.length}</td>
+                <td>${row.score} / ${totalQ}</td>
                 <td>${new Date(row.created_at).toLocaleString('ku-IQ')}</td>
             `;
             tbody.appendChild(tr);
@@ -564,16 +566,17 @@
             return;
         }
 
-        let sum = 0;
+        letsum = 0;
         let passCount = 0;
         let mistakeCounts = new Array(questions.length).fill(0);
 
         data.forEach(row => {
             sum += Number(row.score);
-            if (Number(row.score) >= Math.ceil(questions.length / 2)) passCount++; 
+            const studentAns = row.answers ? (Array.isArray(row.answers) ? row.answers : JSON.parse(row.answers)) : [];
+            const totalQ = studentAns.length > 0 ? studentAns.length : questions.length;
+            if (Number(row.score) >= Math.ceil(totalQ / 2)) passCount++; 
 
             if (row.answers) {
-                const studentAns = Array.isArray(row.answers) ? row.answers : JSON.parse(row.answers);
                 questions.forEach((q, idx) => {
                     if (studentAns[idx] !== q.answer) {
                         mistakeCounts[idx]++;
@@ -669,6 +672,13 @@
         renderEditorQuestions();
     }
 
+    function normalizeClassGroup(group) {
+        if (!group) return "نادیار";
+        let g = group.trim();
+        g = g.replace(/ا|أ|إ|آ|الف/g, 'ئەلف');
+        return g.replace(/\s+/g, ' ');
+    }
+
     async function saveQuestionsToCloud() {
         let newQuestions = [];
         for (let i = 0; i < questions.length; i++) {
@@ -693,10 +703,24 @@
             .select('*');
 
         if (!fetchError && oldResults && oldResults.length > 0) {
-            let reportText = "📊 ڕاپۆرتی ئەنجامی قوتابیان (پێش نوێکردنەوەی پرسیارەکان):\n\n";
-            oldResults.forEach((row, idx) => {
-                reportText += `${idx + 1}. ناو: ${row.student_name}\n   پۆل/لق: ${row.class_group}\n   نمرە: ${row.score} / ${questions.length}\n   کات: ${new Date(row.created_at).toLocaleString('ku-IQ')}\n\n`;
+            // Group by normalized class group for Telegram report
+            let groups = {};
+            oldResults.forEach(row => {
+                let normClass = normalizeClassGroup(row.class_group);
+                if (!groups[normClass]) groups[normClass] = [];
+                groups[normClass].push(row);
             });
+
+            let reportText = "📊 ڕاپۆرتی ئەنجامی قوتابیان (بەپێی پۆل و لق):\n\n";
+            for (let [className, students] of Object.entries(groups)) {
+                reportText += `📂 پۆل / لق: ${className}\n`;
+                students.forEach((row, idx) => {
+                    let studentAns = row.answers ? (Array.isArray(row.answers) ? row.answers : JSON.parse(row.answers)) : [];
+                    let totalQ = studentAns.length > 0 ? studentAns.length : questions.length;
+                    reportText += `  ${idx + 1}. ناو: ${row.student_name} | نمرە: ${row.score} / ${totalQ}\n`;
+                });
+                reportText += `\n`;
+            }
 
             if (TELEGRAM_BOT_TOKEN !== "" && TELEGRAM_CHAT_ID !== "لێرە_چات_ایدی_مامۆستا_دانێ") {
                 try {
@@ -708,7 +732,7 @@
                             text: reportText
                         })
                     });
-                } catch (err) {
+                } catch(err) {
                     console.error("هەڵە لە ناردنی تێلیگرام:", err);
                 }
             }
@@ -736,7 +760,7 @@
         if (error) {
             alert("هەڵە لە پاشەکەوتکردن: " + error.message);
         } else {
-            alert("پرسیارەکان پاشەکەوت کران، داتا کۆنەکان ڕەوانەی تێلیگرام کران، و ماوەی ٤٨ کاتژمێری نوێ دەستی پێکرد!");
+            alert("پرسیارەکان پاشەکەوت کران، داتا کۆنەکان بەپێی پۆل ڕەوانەی تێلیگرام کران، و ماوەی ٤٨ کاتژمێری نوێ دەستی پێکرد!");
             questions = newQuestions;
             currentExamUpdatedAt = nowIso;
             allResults = [];
