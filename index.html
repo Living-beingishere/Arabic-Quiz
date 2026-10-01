@@ -517,6 +517,19 @@
     }
 
     async function loadTeacherData() {
+        try {
+            const { data: configData } = await supabaseClient
+                .from('exam_config')
+                .select('*')
+                .eq('id', 1)
+                .single();
+            if (configData && configData.questions) {
+                questions = typeof configData.questions === 'string' ? JSON.parse(configData.questions) : configData.questions;
+            }
+        } catch (e) {
+            console.log("Error loading questions config:", e);
+        }
+
         const { data, error } = await supabaseClient
             .from('exam_results')
             .select('*')
@@ -560,13 +573,13 @@
         document.getElementById('totalStudents').innerText = total;
 
         if (total === 0) {
-            document.getElementById('avgScore').innerText = '0';
+            document.getElementById('avgScore').innerText = '0 / ' + questions.length;
             document.getElementById('passRate').innerText = '0%';
             document.getElementById('mostMistakeQ').innerText = 'هیچ';
             return;
         }
 
-        letsum = 0;
+        let sum = 0;
         let passCount = 0;
         let mistakeCounts = new Array(questions.length).fill(0);
 
@@ -574,12 +587,17 @@
             sum += Number(row.score);
             const studentAns = row.answers ? (Array.isArray(row.answers) ? row.answers : JSON.parse(row.answers)) : [];
             const totalQ = studentAns.length > 0 ? studentAns.length : questions.length;
-            if (Number(row.score) >= Math.ceil(totalQ / 2)) passCount++; 
+            
+            if (Number(row.score) >= Math.ceil(totalQ / 2)) {
+                passCount++; 
+            }
 
-            if (row.answers) {
+            if (studentAns.length > 0) {
                 questions.forEach((q, idx) => {
-                    if (studentAns[idx] !== q.answer) {
-                        mistakeCounts[idx]++;
+                    if (idx < studentAns.length) {
+                        if (studentAns[idx] !== q.answer) {
+                            mistakeCounts[idx]++;
+                        }
                     }
                 });
             }
@@ -592,16 +610,20 @@
         document.getElementById('passRate').innerText = rate + '%';
 
         let maxMistakes = Math.max(...mistakeCounts);
-        if (maxMistakes === 0) {
+        if (maxMistakes === 0 || total === 0) {
             document.getElementById('mostMistakeQ').innerText = 'هیچ غەڵاتێک نییە';
         } else {
             let worstQuestions = [];
             mistakeCounts.forEach((count, idx) => {
-                if (count === maxMistakes) {
+                if (count === maxMistakes && count > 0) {
                     worstQuestions.push(`پرسیاری ${idx + 1}`);
                 }
             });
-            document.getElementById('mostMistakeQ').innerHTML = `${worstQuestions.join(', ')} <br><span style="font-size: 10px; color: #555; font-weight: normal;">زۆربەی قوتابیان هەڵەیان تێدا کردووە</span>`;
+            if (worstQuestions.length === 0) {
+                document.getElementById('mostMistakeQ').innerText = 'هیچ غەڵاتێک نییە';
+            } else {
+                document.getElementById('mostMistakeQ').innerHTML = `${worstQuestions.join(', ')} <br><span style="font-size: 10px; color: #555; font-weight: normal;">زۆربەی قوتابیان هەڵەیان تێدا کردووە</span>`;
+            }
         }
     }
 
@@ -703,7 +725,6 @@
             .select('*');
 
         if (!fetchError && oldResults && oldResults.length > 0) {
-            // Group by normalized class group for Telegram report
             let groups = {};
             oldResults.forEach(row => {
                 let normClass = normalizeClassGroup(row.class_group);
@@ -732,7 +753,7 @@
                             text: reportText
                         })
                     });
-                } catch(err) {
+                } catch (err) {
                     console.error("هەڵە لە ناردنی تێلیگرام:", err);
                 }
             }
@@ -745,7 +766,6 @@
 
         const nowIso = new Date().toISOString();
 
-        // Safe upsert with fallback if updated_at column doesn't exist in Supabase table
         let { error } = await supabaseClient
             .from('exam_config')
             .upsert([{ id: 1, questions: newQuestions, updated_at: nowIso }]);
