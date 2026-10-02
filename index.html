@@ -347,6 +347,51 @@
     let timer;
     let timeLeft = 60;
 
+    // --- 100% BULLETPROOF ANSWER CHECKING FUNCTION ---
+    function isAnswerCorrect(userAns, q) {
+        if (!userAns || !q || !q.options) return false;
+        let userStr = String(userAns).trim();
+        let correctStr = q.answer !== undefined && q.answer !== null ? String(q.answer).trim() : '';
+
+        // 1. Direct text match
+        if (userStr === correctStr || userStr.toLowerCase() === correctStr.toLowerCase()) {
+            return true;
+        }
+
+        // 2. Find index of selected option in q.options
+        let userIndex = q.options.findIndex(opt => String(opt).trim() === userStr);
+
+        // 3. Map letters/numbers to option indices (A, B, C, D / 1, 2, 3, 4 / أ, ب, ج, د)
+        const symbolMap = {
+            0: ['أ', 'ا', '1', 'a', 'A', '١'],
+            1: ['ب', '2', 'b', 'B', '٢'],
+            2: ['ج', '3', 'c', 'C', '٣'],
+            3: ['د', '4', 'd', 'D', '٤'],
+            4: ['و', '5', 'e', 'E', '٥']
+        };
+
+        if (userIndex !== -1) {
+            if (correctStr === String(userIndex + 1) || correctStr === String(userIndex)) {
+                return true;
+            }
+            if (symbolMap[userIndex] && symbolMap[userIndex].some(s => correctStr.toLowerCase() === s.toLowerCase())) {
+                return true;
+            }
+        }
+
+        // 4. Check if correctStr matches the start of userStr (e.g. answer is 'د' and option is 'د) ...')
+        if (userStr.toLowerCase().startsWith(correctStr.toLowerCase())) {
+            return true;
+        }
+
+        // 5. Substring check if correctStr is substantial
+        if (correctStr.length > 1 && userStr.toLowerCase().includes(correctStr.toLowerCase())) {
+            return true;
+        }
+
+        return false;
+    }
+
     window.onload = async function() {
         try {
             const { data, error } = await supabaseClient
@@ -367,7 +412,7 @@
                     if (hoursPassed > 48) {
                         document.getElementById('register-form').innerHTML = `
                             <div style="text-align: center; color: #c0392b; font-weight: bold; padding: 20px; font-size: 18px;">
-                                ماوەی ٤٨ کاتژمێریئەم تاقیکردنەوەیە بەسەرچووە!
+                                ماوەی ٤٨ کاتژمێری ئەم تاقیکردنەوەیە بەسەرچووە!
                             </div>
                         `;
                         return;
@@ -536,7 +581,7 @@
 
         let score = 0;
         questions.forEach((q, idx) => {
-            if (userAnswers[idx] === q.answer) {
+            if (isAnswerCorrect(userAnswers[idx], q)) {
                 score += 1; 
             }
         });
@@ -552,7 +597,7 @@
         let reviewHTML = '<h3>پیاچوونەوەی وەڵامەکان:</h3>';
         questions.forEach((q, idx) => {
             const userAns = userAnswers[idx];
-            const isCorrect = userAns === q.answer;
+            const isCorrect = isAnswerCorrect(userAns, q);
             
             reviewHTML += `
                 <div class="review-item" style="background: ${isCorrect ? '#e8f8f5' : '#fdedec'};">
@@ -697,7 +742,7 @@
             if (Array.isArray(studentAns) && studentAns.length > 0) {
                 questions.forEach((q, idx) => {
                     if (idx < studentAns.length) {
-                        if (studentAns[idx] !== q.answer) {
+                        if (!isAnswerCorrect(studentAns[idx], q)) {
                             mistakeCounts[idx]++;
                         }
                     }
@@ -759,7 +804,7 @@
 
         questions.forEach((q, index) => {
             let opts = [...q.options];
-            while(opts.length < 4) opts.push(''); // Ensure up to 4 options (A, B, C, D)
+            while(opts.length < 4) opts.push('');
             
             let optsHTML = '';
             for(let j = 0; j < 4; j++) {
@@ -783,7 +828,7 @@
                     ${optsHTML}
                 </div>
                 <div class="form-group">
-                    <label>وەڵامی ڕاست:</label>
+                    <label>وەڵامی ڕاست (نموونە: دەقی وەڵام یان پیت وەک d / د):</label>
                     <input type="text" id="q_ans_${index}" value="${q.answer}">
                 </div>
                 <button onclick="removeQuestionField(${index})" style="background-color: #c0392b; width: auto; padding: 6px 12px; font-size: 13px;">سڕینەوەی ئەم پرسیارە</button>
