@@ -347,7 +347,7 @@
     let timer;
     let timeLeft = 60;
 
-    // --- ADVANCED BULLETPROOF ANSWER CHECKING & RESOLUTION ---
+    // --- ROBUST ANSWER MAPPING & CHECKING (A=0, B=1, C=2, D=3, etc.) ---
     function getCorrectOptionIndex(answerStr) {
         if (!answerStr) return -1;
         let clean = String(answerStr).trim().toLowerCase().replace(/[\.,;:'"\s\(\)]/g, '');
@@ -375,9 +375,7 @@
         }
         
         return -1;
-    }
-
-    function getCorrectAnswerText(q) {
+    }function getCorrectAnswerText(q) {
         if (!q || !q.answer) return '';
         let idx = getCorrectOptionIndex(q.answer);
         if (idx !== -1 && q.options && q.options[idx] !== undefined) {
@@ -839,7 +837,7 @@
                     ${optsHTML}
                 </div>
                 <div class="form-group">
-                    <label>وەڵامی ڕاست (نموونە: d یان D یان د یان دەقی تەواو):</label>
+                    <label>وەڵامی ڕاست (نموونە: a, b, c, d یان دەقی تەواو):</label>
                     <input type="text" id="q_ans_${index}" value="${q.answer}">
                 </div>
                 <button onclick="removeQuestionField(${index})" style="background-color: #c0392b; width: auto; padding: 6px 12px; font-size: 13px;">سڕینەوەی ئەم پرسیارە</button>
