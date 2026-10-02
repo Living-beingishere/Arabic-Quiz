@@ -14,10 +14,6 @@
             padding: 20px;
             direction: rtl;
             text-align: right;
-            user-select: none;
-            -webkit-user-select: none;
-            -moz-user-select: none;
-            -ms-user-select: none;
         }
         .container {
             max-width: 700px;
@@ -562,8 +558,7 @@
             reviewHTML += `
                 <div class="review-item" style="background: ${isCorrect ? '#e8f8f5' : '#fdedec'};">
                     <p><b>${q.question}</b></p>
-                    <p>وەڵامی تۆ: <span class="${isCorrect ? 'correct-answer' : 'wrong-answer'}">${userAns}</span></p>
-                    ${!isCorrect ? `<p>وەڵامی ڕاست: <span class="correct-answer">${q.answer}</span></p>` : ''}
+                    <p>وەڵامی تۆ: <span class="${isCorrect ? 'correct-answer' : 'wrong-answer'}">${userAns}</span></p>${!isCorrect ? `<p>وەڵامی ڕاست: <span class="correct-answer">${q.answer}</span></p>` : ''}
                 </div>
             `;
         });
@@ -747,8 +742,7 @@
     }
 
     function openQuestionManager() {
-        document.getElementById('dashboard-main-view').classList.add('hidden');
-        document.getElementById('backToMainBtn').classList.remove('hidden');
+        document.getElementById('dashboard-main-view').classList.add('hidden');document.getElementById('backToMainBtn').classList.remove('hidden');
         document.getElementById('question-manager-view').classList.remove('hidden');
         renderEditorQuestions();
     }
