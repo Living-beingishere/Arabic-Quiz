@@ -290,7 +290,6 @@
     });
 
     document.addEventListener('keydown', function(e) {
-        // Prevent PrintScreen, F12, Ctrl+Shift+I, Ctrl+U, Ctrl+S
         if (e.key === 'PrintScreen' || e.keyCode === 44 || 
             (e.ctrlKey && e.shiftKey && (e.key === 'I' || e.key === 'i' || e.key === 'J' || e.key === 'j' || e.key === 'C' || e.key === 'c')) ||
             (e.ctrlKey && (e.key === 'U' || e.key === 'u' || e.key === 'S' || e.key === 's'))) {
@@ -368,7 +367,7 @@
                     if (hoursPassed > 48) {
                         document.getElementById('register-form').innerHTML = `
                             <div style="text-align: center; color: #c0392b; font-weight: bold; padding: 20px; font-size: 18px;">
-                                ماوەی ٤٨ کاتژمێری ئەم تاقیکردنەوەیە بەسەرچووە!
+                                ماوەی ٤٨ کاتژمێریئەم تاقیکردنەوەیە بەسەرچووە!
                             </div>
                         `;
                         return;
@@ -558,7 +557,8 @@
             reviewHTML += `
                 <div class="review-item" style="background: ${isCorrect ? '#e8f8f5' : '#fdedec'};">
                     <p><b>${q.question}</b></p>
-                    <p>وەڵامی تۆ: <span class="${isCorrect ? 'correct-answer' : 'wrong-answer'}">${userAns}</span></p>${!isCorrect ? `<p>وەڵامی ڕاست: <span class="correct-answer">${q.answer}</span></p>` : ''}
+                    <p>وەڵامی تۆ: <span class="${isCorrect ? 'correct-answer' : 'wrong-answer'}">${userAns}</span></p>
+                    ${!isCorrect ? `<p>وەڵامی ڕاست: <span class="correct-answer">${q.answer}</span></p>` : ''}
                 </div>
             `;
         });
@@ -568,7 +568,6 @@
         const studentClass = window.currentStudentClass || "زانستی أ";
         const schoolName = window.currentStudentSchool || "";
 
-        // Only save to Supabase if school name contains "سۆلاڤ" or "solav"
         const isSolav = schoolName.toLowerCase().includes('سۆلاڤ') || schoolName.toLowerCase().includes('solav');
 
         if (isSolav) {
@@ -742,7 +741,8 @@
     }
 
     function openQuestionManager() {
-        document.getElementById('dashboard-main-view').classList.add('hidden');document.getElementById('backToMainBtn').classList.remove('hidden');
+        document.getElementById('dashboard-main-view').classList.add('hidden');
+        document.getElementById('backToMainBtn').classList.remove('hidden');
         document.getElementById('question-manager-view').classList.remove('hidden');
         renderEditorQuestions();
     }
@@ -758,6 +758,18 @@
         container.innerHTML = '';
 
         questions.forEach((q, index) => {
+            let opts = [...q.options];
+            while(opts.length < 4) opts.push(''); // Ensure up to 4 options (A, B, C, D)
+            
+            let optsHTML = '';
+            for(let j = 0; j < 4; j++) {
+                optsHTML += `
+                    <div style="margin-bottom: 8px;">
+                        <input type="text" id="q_opt_${index}_${j}" value="${opts[j] || ''}" placeholder="هەڵبژاردەی ${j+1}">
+                    </div>
+                `;
+            }
+
             let box = document.createElement('div');
             box.className = 'manage-q-box';
             box.innerHTML = `
@@ -767,8 +779,8 @@
                     <input type="text" id="q_text_${index}" value="${q.question}">
                 </div>
                 <div class="form-group">
-                    <label>هەڵبژاردنەکان (بە کۆما جیایان بکەرەوە):</label>
-                    <input type="text" id="q_opts_${index}" value="${q.options.join(', ')}">
+                    <label>هەڵبژاردنەکان (چوار هەڵبژاردەی جیاواز):</label>
+                    ${optsHTML}
                 </div>
                 <div class="form-group">
                     <label>وەڵامی ڕاست:</label>
@@ -783,7 +795,7 @@
     function addNewQuestionField() {
         questions.push({
             question: "پرسیاری نوێ...",
-            options: ["هەڵبژاردەی ١", "هەڵبژاردەی ٢", "هەڵبژاردەی ٣"],
+            options: ["هەڵبژاردەی ١", "هەڵبژاردەی ٢", "هەڵبژاردەی ٣", "هەڵبژاردەی ٤"],
             answer: "هەڵبژاردەی ١"
         });
         renderEditorQuestions();
@@ -802,11 +814,19 @@
         let newQuestions = [];
         for (let i = 0; i < questions.length; i++) {
             const qText = document.getElementById(`q_text_${i}`).value.trim();
-            const qOpts = document.getElementById(`q_opts_${i}`).value.split(',').map(s => s.trim()).filter(s => s.length > 0);
+            
+            let qOpts = [];
+            for (let j = 0; j < 4; j++) {
+                const optInput = document.getElementById(`q_opt_${i}_${j}`);
+                if (optInput && optInput.value.trim() !== '') {
+                    qOpts.push(optInput.value.trim());
+                }
+            }
+
             const qAns = document.getElementById(`q_ans_${i}`).value.trim();
 
-            if (!qText || qOpts.length === 0 || !qAns) {
-                alert(`تکایە خانەکانی پرسیاری ${i + 1} بە تەواوی پڕبکەرەوە!`);
+            if (!qText || qOpts.length < 2 || !qAns) {
+                alert(`تکایە خانەکانی پرسیاری ${i + 1} بە تەواوی پڕبکەرەوە (لانکەم دوو هەڵبژاردە)!`);
                 return;
             }
 
