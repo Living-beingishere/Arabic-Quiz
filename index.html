@@ -146,7 +146,7 @@
             font-size: 14px;
         }
         th { background-color: #f8f9fa; color: #2c3e50; }
-        tr.clickable-row { cursor: pointer; }
+        tr.clickable-row td { cursor: pointer; }
         tr.clickable-row:hover { background-color: #ebf5fb; }
         
         .manage-q-box {
@@ -214,7 +214,7 @@
                             <option value="زانستی">زانستی</option>
                             <option value="وێژەیی">وێژەیی</option>
                         </select>
-                        <input type="text" id="studentLetter" maxlength="1" placeholder="ناوی پۆل (أ، ب، ج، د...)" style="flex: 1.5; text-align: center; font-weight: bold;" oninput="enforceLetterRestriction(this)">
+                        <input type="text" id="studentLetter" maxlength="1" placeholder="ناوی پۆل (أ، ب، ج، د...)" style="flex: 1.5; text-align: center; font-weight:bold;" oninput="enforceLetterRestriction(this)">
                     </div>
                 </div>
 
@@ -272,11 +272,13 @@
                 </div>
             </div>
 
-            <div class="form-group">
-                <input type="text" id="searchInput" placeholder="گەڕان بە دوای ناو یان پۆلدا..." onkeyup="filterTable()">
+            <!-- Dual Search Bars -->
+            <div class="form-group" style="display: flex; gap: 10px;">
+                <input type="text" id="searchInput" placeholder="گەڕان بە دوای ناوی قوتابیدا..." onkeyup="filterTable()" style="flex: 1;">
+                <input type="text" id="searchClassInput" placeholder="گەڕان بە دوای پۆلدا (وەک: زانستی أ)..." onkeyup="filterTable()" style="flex: 1;">
             </div>
 
-            <p style="font-size: 13px; color: #7f8c8d; text-align: center;">💡 بۆ بینین و ناردنی وردەکاری وەڵامەکان، کلیک لەسەر ناوی قوتابییەکە بکە.</p>
+            <p style="font-size: 13px; color: #7f8c8d; text-align: center;">💡 بۆ بینین و ناردنی وردەکاری وەڵامەکان، کلیک لەسەر ڕیزەکە بکە. بۆ سڕینەوەی قوتابی، پەنجە بنە سەر ناوی قوتابی و ڕایگرە (Press & Hold).</p>
 
             <table>
                 <thead>
@@ -301,7 +303,7 @@
         <!-- Question Manager View -->
         <div id="question-manager-view" class="hidden">
             <h3>دەستکاری و زیادکردنی پرسیارەکان و کات</h3>
-            <p style="font-size: 13px; color: #7f8c8d; text-align: center;">کاتێک پاشەکەوتی دەکەیت، داتای پێشوو بۆ تێلیگرام دەنێردرێت، داتابەیس پاک دەبێتەوە و ٤٨ کاتژمێری نوێ دەست پێدەکات.</p>
+            <p style="font-size: 13px; color: #7f8c8d; text-align: center;">دوگمەی یەکەم تەنها گۆڕانکارییەکان پاشەکەوت دەکات بێ ئەوەی داتابەیس پاکبکاتەوە. دوگمەی دووەم داتا دەنێرێت بۆ تێلیگرام و تاقیکردنەوەکە ڕێست دەکاتەوە بۆ ٤٨ کاتژمێری نوێ.</p>
             
             <!-- Timer Setting Box -->
             <div style="background: #e8f8f5; border: 1px solid #a3e4d7; padding: 15px; border-radius: 8px; margin-bottom: 20px;">
@@ -311,6 +313,9 @@
 
             <div id="editorQuestionsContainer"></div>
             <button onclick="addNewQuestionField()" style="background-color: #27ae60; margin-bottom: 15px;">+ زیادکردنی پرسیاری نوێ</button>
+            
+            <!-- Two distinct save buttons -->
+            <button onclick="saveQuestionsOnlyToCloud()" style="background-color: #27ae60; margin-bottom: 10px;">💾 پاشەکەوتکردنی گۆڕانکارییەکان تەنها (بێ ناردن و سڕینەوەی داتا)</button>
             <button onclick="saveQuestionsToCloud()" style="background-color: #2980b9;">💾 پاشەکەوتکردن، ناردنی داتا بۆ تێلیگرام و دەستپێکردنی ٤٨ کاتژمێر</button>
         </div>
 
@@ -352,7 +357,7 @@
     let isExamLockedManual = false;
     let failedPasswordAttempts = 0;
     let isSolavStudent = false;
-    let questionTimeLimit = 60; // Default timer per question
+    let questionTimeLimit = 60;
 
     let questions = [
         {
@@ -456,7 +461,32 @@
         const localVersion = localStorage.getItem('arabic_exam_version');
 
         if (localDone === 'true' && localVersion === serverVersion) {
-            showRestrictedResult();
+            const savedName = localStorage.getItem('arabic_exam_name');
+            const savedClass = localStorage.getItem('arabic_exam_class');
+            if (savedName && savedClass) {
+                try {
+                    const { data: checkRec } = await supabaseClient
+                        .from('exam_results')
+                        .select('*')
+                        .eq('student_name', savedName)
+                        .eq('class_group', savedClass);
+
+                    if (!checkRec || checkRec.length === 0) {
+                        localStorage.removeItem('arabic_exam_done');
+                        localStorage.removeItem('arabic_exam_version');
+                        localStorage.removeItem('arabic_exam_score');
+                        localStorage.removeItem('arabic_exam_answers');
+                        localStorage.removeItem('arabic_exam_name');
+                        localStorage.removeItem('arabic_exam_class');
+                    } else {
+                        showRestrictedResult();
+                    }
+                } catch(e) {
+                    showRestrictedResult();
+                }
+            } else {
+                showRestrictedResult();
+            }
         }
     };
 
@@ -470,13 +500,20 @@
         restrictionBox.classList.remove('hidden');
         restrictionBox.innerHTML = `⚠ ناتوانیت دووبارە تاقیکردنەوە بکەیتەوە، چونكە پێشتر تاقیکردنەوەکەت کردووە یان چوویەتە ناو پرسیارەکان و هاتوویتە دەرەوە.`;
 
-        let savedScore = localStorage.getItem('arabic_exam_score') || 0;
         let savedAnswers = [];
         try {
             savedAnswers = JSON.parse(localStorage.getItem('arabic_exam_answers')) || [];
         } catch(e) {}
 
-        document.getElementById('finalScoreText').innerHTML = `نمرەکەی تۆ: <span style="color: #27ae60;">${savedScore}</span> لە ${questions.length}`;
+        let dynamicScore = 0;
+        questions.forEach((q, idx) => {
+            if (q && isAnswerCorrect(savedAnswers[idx], q)) {
+                dynamicScore++;
+            }
+        });
+        localStorage.setItem('arabic_exam_score', dynamicScore);
+
+        document.getElementById('finalScoreText').innerHTML = `نمرەکەی تۆ: <span style="color: #27ae60;">${dynamicScore}</span> لە ${questions.length}`;
 
         let reviewHTML = '<h3 style="margin-top: 20px;">پیاچوونەوەی وەڵامەکان:</h3>';
         questions.forEach((q, idx) => {
@@ -487,6 +524,7 @@
             reviewHTML += `
                 <div class="review-item" style="background: ${isCorrect ? '#e8f8f5' : '#fdedec'};">
                     <p><b>${q ? q.question : ''}</b></p>
+                    ${q && q.changed_note ? `<p style="color: #d35400; font-weight: bold; background: #fef5e7; padding: 6px; border-radius: 4px; margin-top: 5px;">⚠️ ${q.changed_note}</p>` : ''}
                     <p>وەڵامی تۆ: <span class="${isCorrect ? 'correct-answer' : 'wrong-answer'}">${userAns}</span></p>
                     ${!isCorrect ? `<p>وەڵامی ڕاست: <span class="correct-answer">${correctDisplay}</span></p>` : ''}
                 </div>
@@ -506,6 +544,8 @@
             localStorage.removeItem('arabic_exam_version');
             localStorage.removeItem('arabic_exam_score');
             localStorage.removeItem('arabic_exam_answers');
+            localStorage.removeItem('arabic_exam_name');
+            localStorage.removeItem('arabic_exam_class');
             alert('سیستمەکە بۆ تێست ڕێست کرایەوە!');
             location.reload();
         } else if (pass !== null) {
@@ -525,7 +565,8 @@
     function enforceLetterRestriction(inputElement) {
         const originalValue = inputElement.value;
         const cleanedValue = originalValue.replace(/[^\u0600-\u06FFپژگچڤڕڵۆێە]/g, '');
-        if (originalValue !== cleanedValue) {alert('تەنها پيتي كوردی ڕێگەپێدراوە!');
+        if (originalValue !== cleanedValue) {
+            alert('تەنها پيتي كوردی ڕێگەپێدراوە!');
         }
         inputElement.value = cleanedValue.slice(0, 1);
     }
@@ -585,11 +626,13 @@
                     .eq('class_group', studentClass);
 
                 if (existingRecords && existingRecords.length > 0) {
-                    alert('ئەم ناوە سێیانییە پێشتر بەم پۆلەوە لە داتابەیس تۆمار کراوە! ناتوانیت دووبارە بەشداری بکەیت.');
+                    alert('ئەم ناوە سێیانییە پێشتر بەم پۆلەوە لە داتابەیس تۆمار کراوە! ناتوانیت دووبارە بەشداری بکەیت مەگەر مامۆستا ڕێگەت پێبدات.');
                     localStorage.setItem('arabic_exam_done', 'true');
                     localStorage.setItem('arabic_exam_version', serverVersion);
                     localStorage.setItem('arabic_exam_score', existingRecords[0].score || 0);
                     localStorage.setItem('arabic_exam_answers', JSON.stringify(existingRecords[0].answers || []));
+                    localStorage.setItem('arabic_exam_name', name);
+                    localStorage.setItem('arabic_exam_class', studentClass);
                     showRestrictedResult();
                     return;
                 }
@@ -618,6 +661,8 @@
         localStorage.setItem('arabic_exam_version', serverVersion);
         localStorage.setItem('arabic_exam_answers', JSON.stringify([]));
         localStorage.setItem('arabic_exam_score', '0');
+        localStorage.setItem('arabic_exam_name', name);
+        localStorage.setItem('arabic_exam_class', studentClass);
 
         document.getElementById('register-form').classList.add('hidden');
         document.getElementById('quiz-form').classList.remove('hidden');
@@ -641,8 +686,7 @@
         if (q && Array.isArray(q.options)) {
             q.options.forEach((opt) => {
                 optionsHTML += `
-                    <label dir="rtl">
-                        <input type="radio" name="current_q" value="${opt}"> ${opt}
+                    <label dir="rtl"><input type="radio" name="current_q" value="${opt}"> ${opt}
                     </label>
                 `;
             });
@@ -729,6 +773,7 @@
             reviewHTML += `
                 <div class="review-item" style="background: ${isCorrect ? '#e8f8f5' : '#fdedec'};">
                     <p><b>${q ? q.question : ''}</b></p>
+                    ${q && q.changed_note ? `<p style="color: #d35400; font-weight: bold; background: #fef5e7; padding: 6px; border-radius: 4px; margin-top: 5px;">⚠️ ${q.changed_note}</p>` : ''}
                     <p>وەڵامی تۆ: <span class="${isCorrect ? 'correct-answer' : 'wrong-answer'}">${userAns}</span></p>
                     ${!isCorrect ? `<p>وەڵامی ڕاست: <span class="correct-answer">${correctDisplay}</span></p>` : ''}
                 </div>
@@ -822,7 +867,7 @@
             btn.innerText = "🔓 کردنەوەی تاقیکردنەوە";
             btn.style.backgroundColor = "#27ae60";
         } else {
-            btn.innerText = "🔒 قوفڵکردنی تاقیکردنەوە";
+            btn.innerText ="🔒 قوفڵکردنی تاقیکردنەوە";
             btn.style.backgroundColor = "#c0392b";
         }
     }
@@ -852,6 +897,22 @@
         alert(isExamLockedManual ? "تاقیکردنەوەکە بە سەرکەوتووی قوفڵ کرا!" : "تاقیکردنەوەکە بە سەرکەوتووی کرایەوە!");
     }
 
+    async function deleteStudentRow(id, name) {
+        if (!confirm(`دڵنیای لە سڕینەوەی ناوی (${name}) بۆ ئەوەی بتوانێت دووبارە تاقیکردنەوە بکاتەوە؟`)) return;
+
+        let { error } = await supabaseClient
+            .from('exam_results')
+            .delete()
+            .eq('id', id);
+
+        if (error) {
+            alert('هەڵە لە سڕینەوە: ' + error.message);
+        } else {
+            alert('قوتابییەکە بە سەرکەوتووی سڕایەوە و دەتوانێت دووبارە تاقیکردنەوە بکات!');
+            loadTeacherData();
+        }
+    }
+
     function displayData(data) {
         const tbody = document.getElementById('resultsTableBody');
         tbody.innerHTML = '';
@@ -865,20 +926,52 @@
             const totalQ = questions.length;
             const tr = document.createElement('tr');
             tr.className = 'clickable-row';
-            tr.onclick = () => showStudentDetail(row);
-            tr.innerHTML = `
-                <td><b>${row.student_name || row.name || 'نادیار'}</b></td>
-                <td>${row.class_group || row.class || 'نادیار'}</td>
-                <td><span style="color: #27ae60; font-weight: bold;">${row.score !== undefined ? row.score : 0}</span> / ${totalQ}</td>
-                <td>${row.created_at ? new Date(row.created_at).toLocaleString('ku-IQ') : 'نادیار'}</td>
-            `;
+
+            let pressTimer;
+            
+            const nameTd = document.createElement('td');
+            nameTd.innerHTML = `<b>${row.student_name || 'نادیار'}</b>`;
+            nameTd.style.cursor = 'pointer';
+            
+            nameTd.onmousedown = () => {
+                pressTimer = setTimeout(() => {
+                    deleteStudentRow(row.id, row.student_name || 'نادیار');
+                }, 800);
+            };
+            nameTd.onmouseup = () => clearTimeout(pressTimer);
+            nameTd.ontouchstart = () => {
+                pressTimer = setTimeout(() => {
+                    deleteStudentRow(row.id, row.student_name || 'نادیار');
+                }, 800);
+            };
+            nameTd.ontouchend = () => clearTimeout(pressTimer);
+            nameTd.onclick = () => showStudentDetail(row);
+
+            const classTd = document.createElement('td');
+            classTd.innerText = row.class_group || 'نادیار';
+            classTd.onclick = () => showStudentDetail(row);
+
+            const scoreTd = document.createElement('td');
+            scoreTd.innerHTML = `<span style="color: #27ae60; font-weight: bold;">${row.score !== undefined ? row.score : 0}</span> / ${totalQ}`;
+            scoreTd.onclick = () => showStudentDetail(row);
+
+            const dateTd = document.createElement('td');
+            dateTd.innerText = row.created_at ? new Date(row.created_at).toLocaleString('ku-IQ') : 'نادیار';
+            dateTd.onclick = () => showStudentDetail(row);
+
+            tr.appendChild(nameTd);
+            tr.appendChild(classTd);
+            tr.appendChild(scoreTd);
+            tr.appendChild(dateTd);
+
             tbody.appendChild(tr);
         });
     }
 
     function showStudentDetail(row) {
+        if (!row) return;
         selectedStudentData = row;
-        document.getElementById('modalStudentTitle').innerText = `ئەنجامی قوتابی: ${row.student_name || row.name || 'نادیار'}`;
+        document.getElementById('modalStudentTitle').innerText = `ئەنجامی قوتابی: ${row.student_name || 'نادیار'}`;
         
         let studentAns = [];
         try {
@@ -888,7 +981,7 @@
         } catch(e) {}
 
         const totalQ = questions.length;
-        document.getElementById('modalStudentScore').innerHTML = `پۆل: ${row.class_group || row.class || 'نادیار'} | نمرە: <span style="color:#27ae60;">${row.score !== undefined ? row.score : 0}</span> لە ${totalQ}`;
+        document.getElementById('modalStudentScore').innerHTML = `پۆل: ${row.class_group || 'نادیار'} | نمرە: <span style="color:#27ae60;">${row.score !== undefined ? row.score : 0}</span> لە ${totalQ}`;
 
         let reviewHTML = '';
         questions.forEach((q, idx) => {
@@ -899,6 +992,7 @@
             reviewHTML += `
                 <div class="review-item" style="background: ${isCorrect ? '#e8f8f5' : '#fdedec'};">
                     <p style="margin:0 0 5px 0;"><b>پرسیاری ${idx + 1}: ${q ? q.question : ''}</b></p>
+                    ${q && q.changed_note ? `<p style="color: #d35400; font-weight: bold; background: #fef5e7; padding: 6px; border-radius: 4px; margin-top: 5px;">⚠️ ${q.changed_note}</p>` : ''}
                     <p style="margin:3px 0;">وەڵامی قوتابی: <span class="${isCorrect ? 'correct-answer' : 'wrong-answer'}">${userAns}</span></p>
                     ${!isCorrect ? `<p style="margin:3px 0;">وەڵامی ڕاست: <span class="correct-answer">${correctDisplay}</span></p>` : ''}
                 </div>
@@ -924,8 +1018,8 @@
         } catch(e) {}
 
         let report = `📝 ڕاپۆرتی تاقیکردنەوەی زمانی عەرەبی\n`;
-        report += `👤 قوتابی: ${row.student_name || row.name}\n`;
-        report += `🏫 پۆل/لق: ${row.class_group || row.class}\n`;
+        report += `👤 قوتابی: ${row.student_name}\n`;
+        report += `🏫 پۆل/لق: ${row.class_group}\n`;
         report += `📊 نمرە: ${row.score !== undefined ? row.score : 0} لە ${questions.length}\n`;
         report += `------------------------------------\n\n`;
 
@@ -935,6 +1029,9 @@
             const correctDisplay = q ? getCorrectAnswerText(q) : '';
 
             report += `${idx + 1}. ${q ? q.question : ''}\n`;
+            if (q && q.changed_note) {
+                report += `  - ⚠️ ${q.changed_note}\n`;
+            }
             report += `  - وەڵامی تۆ: ${userAns} (${isCorrect ? '✅ ڕاست' : '❌ هەڵە'})\n`;
             if (!isCorrect) {
                 report += `  - وەڵامی ڕاست: ${correctDisplay}\n`;
@@ -1010,11 +1107,13 @@
     }
 
     function filterTable() {
-        const query = document.getElementById('searchInput').value.toLowerCase();
+        const nameQuery = document.getElementById('searchInput').value.toLowerCase();
+        const classQuery = document.getElementById('searchClassInput').value.toLowerCase();
+
         const filtered = allResults.filter(row => {
-            const name = (row.student_name || row.name || '').toLowerCase();
-            const cls = (row.class_group || row.class || '').toLowerCase();
-            return name.includes(query) || cls.includes(query);
+            const name = (row.student_name || '').toLowerCase();
+            const cls = (row.class_group || '').toLowerCase();
+            return name.includes(nameQuery) && cls.includes(classQuery);
         });
         displayData(filtered);
     }
@@ -1057,7 +1156,8 @@
                 <div class="form-group">
                     <label>دەقی پرسیار:</label>
                     <input type="text" id="q_text_${index}" value="${q ? q.question : ''}">
-                </div><div class="form-group">
+                </div>
+                <div class="form-group">
                     <label>هەڵبژاردنەکان (چوار هەڵبژاردەی جیاواز):</label>
                     ${optsHTML}
                 </div>
@@ -1087,6 +1187,91 @@
         }
         questions.splice(index, 1);
         renderEditorQuestions();
+    }
+
+    async function saveQuestionsOnlyToCloud() {
+        let newQuestions = [];
+        for (let i = 0; i < questions.length; i++) {
+            const qText = document.getElementById(`q_text_${i}`).value.trim();
+            let qOpts = [];
+            for (let j = 0; j < 4; j++) {
+                const optInput = document.getElementById(`q_opt_${i}_${j}`);
+                if (optInput && optInput.value.trim() !== '') {
+                    qOpts.push(optInput.value.trim());
+                }
+            }
+            const qAns = document.getElementById(`q_ans_${i}`).value.trim();
+
+            if (!qText || qOpts.length < 2 || !qAns) {
+                alert(`تکایە خانەکانی پرسیاری ${i + 1} بە تەواوی پڕبکەرەوە!`);
+                return;
+            }
+
+            newQuestions.push({ question: qText, options: qOpts, answer: qAns });
+        }
+
+        try {
+            const { data: configData } = await supabaseClient.from('exam_config').select('*').eq('id', 1).single();
+            if (configData && configData.questions) {
+                let oldQ = configData.questions;
+                if (typeof oldQ === 'string') {
+                    try { oldQ = JSON.parse(oldQ); } catch(e) {}
+                }
+                if (Array.isArray(oldQ)) {
+                    newQuestions.forEach((nq, idx) => {
+                        if (oldQ[idx] && oldQ[idx].answer !== nq.answer) {
+                            const correctText = getCorrectAnswerText(nq);
+                            nq.changed_note = `ببوورە وەڵامی ئەم پرسیارە بە هەڵە دانرابوو، وەڵامی ڕاست ئەمەیە: ${correctText}`;
+                        } else if (oldQ[idx] && oldQ[idx].changed_note) {
+                            nq.changed_note = oldQ[idx].changed_note;
+                        }
+                    });
+                }
+            }
+        } catch(e) {}
+
+        const newTimeLimit = parseInt(document.getElementById('examTimeLimitInput').value) || 60;
+        const nowIso = new Date().toISOString();
+
+        let { error } = await supabaseClient
+            .from('exam_config')
+            .upsert([{ id: 1, questions: newQuestions, time_limit: newTimeLimit, updated_at: nowIso, is_locked: isExamLockedManual }]);
+
+        if (error) {
+            alert("هەڵە لە پاشەکەوتکردن: " + error.message);
+        } else {
+            try {
+                const { data: resultsData } = await supabaseClient.from('exam_results').select('*');
+                if (resultsData && resultsData.length > 0) {
+                    for (let row of resultsData) {
+                        let studentAns = [];
+                        try {
+                            studentAns = typeof row.answers === 'string' ? JSON.parse(row.answers) : (row.answers || []);
+                        } catch(e) {}
+
+                        let newScore = 0;
+                        newQuestions.forEach((q, idx) => {
+                            if (q && isAnswerCorrect(studentAns[idx], q)) {
+                                newScore++;
+                            }
+                        });
+
+                        await supabaseClient
+                            .from('exam_results')
+                            .update({ score: newScore })
+                            .eq('id', row.id);
+                    }
+                }
+            } catch(e) {
+                console.log("Error updating student scores:", e);
+            }
+
+            alert("گۆڕانکارییەکان، وەڵامەکان و نمرەی قوتابییەکان بە سەرکەوتووی نوێ کرانەوە!");
+            questions = newQuestions;
+            questionTimeLimit = newTimeLimit;
+            currentExamUpdatedAt = nowIso;
+            backToDashboardMain();
+        }
     }
 
     async function saveQuestionsToCloud() {
@@ -1165,8 +1350,10 @@
             localStorage.removeItem('teacher_lock_until_update');
             localStorage.removeItem('arabic_exam_done');
             localStorage.removeItem('arabic_exam_version');
+            localStorage.removeItem('arabic_exam_name');
+            localStorage.removeItem('arabic_exam_class');
             failedPasswordAttempts = 0;
-            alert("گۆڕانکارییەکان و کاتی نوێ پاشەکەوت کران، داتای پێشوو بۆ تێلیگرام نێردرا و تاقیکردنەوەکە دەستپێکرایەوە!");
+            alert("پرسیارەکان پاشەکەوت کران، داتای پێشوو بە ڕێکخراوی بۆ تێلیگرام نێردرا، داتابەیس پاککرایەوە و تاقیکردنەوەکە بۆ ٤٨ کاتژمێری نوێ دەستپێکرایەوە!");
             questions = newQuestions;
             questionTimeLimit = newTimeLimit;
             currentExamUpdatedAt = nowIso;
