@@ -14,6 +14,21 @@
             padding: 20px;
             direction: rtl;
             text-align: right;
+            position: relative;
+        }
+        /* Watermark style - fixed, won't scroll, balanced visibility */
+        body::before {
+            content: "سیروان یوسف";
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%) rotate(-30deg);
+            font-size: 32px;
+            color: rgba(0, 0, 0, 0.12);
+            font-weight: bold;
+            pointer-events: none;
+            z-index: 9999;
+            white-space: nowrap;
         }
         .container {
             max-width: 700px;
@@ -22,6 +37,8 @@
             padding: 30px;
             border-radius: 12px;
             box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+            position: relative;
+            z-index: 1;
         }
         h2, h3 { color: #2c3e50; text-align: center; }
         .form-group { margin-bottom: 20px; }
@@ -204,7 +221,13 @@
 
                 <div class="form-group">
                     <label>ناوی قوتابخانە (بە کوردی):</label>
-                    <input type="text" id="studentSchool" placeholder="" oninput="enforceNameRestriction(this)">
+                    <div style="display: flex; gap: 10px; flex-direction: column;">
+                        <select id="schoolSelectDropdown" onchange="handleSchoolSelectChange()">
+                            <option value="">-- قوتابخانەیەکی تر (بنووسە) --</option>
+                            <option value="ئامادەیی سۆلاڤی کچان">ئامادەیی سۆلاڤی کچان</option>
+                        </select>
+                        <input type="text" id="studentSchool" placeholder="ناوی قوتابخانە لێرە بنووسە..." oninput="enforceNameRestriction(this)">
+                    </div>
                 </div>
                 
                 <div class="form-group">
@@ -214,7 +237,7 @@
                             <option value="زانستی">زانستی</option>
                             <option value="وێژەیی">وێژەیی</option>
                         </select>
-                        <input type="text" id="studentLetter" maxlength="1" placeholder="ناوی پۆل (أ، ب، ج، د...)" style="flex: 1.5; text-align: center; font-weight:bold;" oninput="enforceLetterRestriction(this)">
+                        <input type="text" id="studentLetter" maxlength="1" placeholder="ناوی پۆل (أ، ب، ج، د...)" style="flex: 1.5; text-align: center; font-weight: bold;" oninput="enforceLetterRestriction(this)">
                     </div>
                 </div>
 
@@ -421,6 +444,19 @@
         return (userStr === correctText || userStr === rawAnswer);
     }
 
+    function handleSchoolSelectChange() {
+        const select = document.getElementById('schoolSelectDropdown');
+        const input = document.getElementById('studentSchool');
+        if (select.value) {
+            input.value = select.value;
+            input.style.display = 'none';
+        } else {
+            input.value = '';
+            input.style.display = 'block';
+            input.focus();
+        }
+    }
+
     window.onload = async function() {
         try {
             const { data } = await supabaseClient
@@ -472,12 +508,8 @@
                         .eq('class_group', savedClass);
 
                     if (!checkRec || checkRec.length === 0) {
-                        localStorage.removeItem('arabic_exam_done');
-                        localStorage.removeItem('arabic_exam_version');
-                        localStorage.removeItem('arabic_exam_score');
-                        localStorage.removeItem('arabic_exam_answers');
-                        localStorage.removeItem('arabic_exam_name');
-                        localStorage.removeItem('arabic_exam_class');
+                        // Keep restricted if already done locally, preventing multiple attempts for non-solav too
+                        showRestrictedResult();
                     } else {
                         showRestrictedResult();
                     }
@@ -596,7 +628,7 @@
         }
 
         if (!school) {
-            alert('تکایە ناوی قوتابخانە بنووسە.');
+            alert('تکایە ناوی قوتابخانە بنووسە یان هەڵبژێرە.');
             schoolInput.focus();
             return;
         }
@@ -655,9 +687,7 @@
                     currentRecordId = insertedData[0].id;
                 }
             } catch (err) {}
-        }
-
-        localStorage.setItem('arabic_exam_done', 'true');
+        }localStorage.setItem('arabic_exam_done', 'true');
         localStorage.setItem('arabic_exam_version', serverVersion);
         localStorage.setItem('arabic_exam_answers', JSON.stringify([]));
         localStorage.setItem('arabic_exam_score', '0');
@@ -686,7 +716,8 @@
         if (q && Array.isArray(q.options)) {
             q.options.forEach((opt) => {
                 optionsHTML += `
-                    <label dir="rtl"><input type="radio" name="current_q" value="${opt}"> ${opt}
+                    <label dir="rtl">
+                        <input type="radio" name="current_q" value="${opt}"> ${opt}
                     </label>
                 `;
             });
@@ -867,7 +898,7 @@
             btn.innerText = "🔓 کردنەوەی تاقیکردنەوە";
             btn.style.backgroundColor = "#27ae60";
         } else {
-            btn.innerText ="🔒 قوفڵکردنی تاقیکردنەوە";
+            btn.innerText = "🔒 قوفڵکردنی تاقیکردنەوە";
             btn.style.backgroundColor = "#c0392b";
         }
     }
@@ -1181,8 +1212,7 @@
     }
 
     function removeQuestionField(index) {
-        if (questions.length <= 1) {
-            alert('دەبێت لە ١ پرسیار کەمتر نەبێت!');
+        if (questions.length <= 1) {alert('دەبێت لە ١ پرسیار کەمتر نەبێت!');
             return;
         }
         questions.splice(index, 1);
