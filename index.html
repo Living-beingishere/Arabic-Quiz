@@ -7,6 +7,7 @@
     <!-- Supabase CDN -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <style>
+        /* Anti-Screenshot / Anti-Recording / Anti-External Photo Blur Shield */
         body {
             font-family: Tahoma, sans-serif;
             background-color: #f4f6f9;
@@ -15,7 +16,22 @@
             direction: rtl;
             text-align: right;
             position: relative;
+            -webkit-touch-callout: none;
+            -webkit-user-select: none;
+            user-select: none;
         }
+        
+        /* Dynamic Shield: Blurs content when screen focus is lost or external camera/recording is detected */
+        #quiz-form {
+            transition: filter 0.2s ease, opacity 0.2s ease;
+        }
+        body.security-blur #quiz-form,
+        body.security-blur .container {
+            filter: blur(25px);
+            opacity: 0.05;
+            pointer-events: none;
+        }
+
         /* Watermark style - fixed, won't scroll, balanced visibility */
         body::before {
             content: "سیروان یوسف";
@@ -211,8 +227,7 @@
             🔒 تاقیکردنەوەکە لەلایەن مامۆستاوە قوفڵ کراوە و لە ئێستادا بەشداریکردن وەستاوە.
         </div>
 
-        <!-- Registration Form -->
-        <div id="register-form">
+        <!-- Registration Form --><div id="register-form">
             <div id="formInputsContainer">
                 <div class="form-group">
                     <label>ناوی تەواوی قوتابی (ناوی سێیانی بە کوردی):</label>
@@ -415,6 +430,40 @@
     let timer;
     let timeLeft = 60;
 
+    // Strict Anti-Screenshot and Anti-Recording Triggers
+    document.addEventListener('keydown', (e) => {
+        if (e.key === 'PrintScreen' || (e.ctrlKey && e.key === 'p') || (e.ctrlKey && e.shiftKey && e.key === 's') || (e.metaKey && e.shiftKey)) {
+            navigator.clipboard.writeText('');
+            e.preventDefault();
+            alert('❌ گرتنی شاشە (Screenshot) و چاپکردن قەدەغەیە!');
+            return false;
+        }
+    });
+
+    document.addEventListener('keyup', (e) => {
+        if (e.key === 'PrintScreen') {
+            navigator.clipboard.writeText('');
+            alert('❌ گرتنی شاشە (Screenshot) قەدەغەیە لەم تاقیکردنەوەیەدا!');
+        }
+    });
+
+    document.addEventListener('contextmenu', event => event.preventDefault());
+
+    // Dynamic Shield: Blur screen when app loses focus or external camera/recording is detected
+    window.addEventListener('blur', () => {
+        document.body.classList.add('security-blur');
+    });
+    window.addEventListener('focus', () => {
+        document.body.classList.remove('security-blur');
+    });
+    document.addEventListener('visibilitychange', () => {
+        if (document.hidden) {
+            document.body.classList.add('security-blur');
+        } else {
+            document.body.classList.remove('security-blur');
+        }
+    });
+
     function getCorrectOptionIndex(answerStr) {
         if (!answerStr) return -1;
         let clean = String(answerStr).trim().toLowerCase().replace(/[\.,;:'"\s\(\)]/g, '');
@@ -481,8 +530,7 @@
                 if (data.updated_at) {
                     currentExamUpdatedAt = data.updated_at;
                 }
-                if (data.is_locked !== undefined && data.is_locked !== null) {
-                    isExamLockedManual = Boolean(data.is_locked);
+                if (data.is_locked !== undefined && data.is_locked !== null) {isExamLockedManual = Boolean(data.is_locked);
                 }
             }
         } catch (e) {}
@@ -508,8 +556,12 @@
                         .eq('class_group', savedClass);
 
                     if (!checkRec || checkRec.length === 0) {
-                        // Keep restricted if already done locally, preventing multiple attempts for non-solav too
-                        showRestrictedResult();
+                        localStorage.removeItem('arabic_exam_done');
+                        localStorage.removeItem('arabic_exam_version');
+                        localStorage.removeItem('arabic_exam_score');
+                        localStorage.removeItem('arabic_exam_answers');
+                        localStorage.removeItem('arabic_exam_name');
+                        localStorage.removeItem('arabic_exam_class');
                     } else {
                         showRestrictedResult();
                     }
@@ -649,45 +701,45 @@
         btn.disabled = true;
         btn.innerText = "تکایە چاوەڕێ بکە...";
 
-        if (isSolavStudent) {
-            try {
-                const { data: existingRecords } = await supabaseClient
-                    .from('exam_results')
-                    .select('*')
-                    .eq('student_name', name)
-                    .eq('class_group', studentClass);
+        try {
+            const { data: existingRecords } = await supabaseClient
+                .from('exam_results')
+                .select('*')
+                .eq('student_name', name)
+                .eq('class_group', studentClass);
 
-                if (existingRecords && existingRecords.length > 0) {
-                    alert('ئەم ناوە سێیانییە پێشتر بەم پۆلەوە لە داتابەیس تۆمار کراوە! ناتوانیت دووبارە بەشداری بکەیت مەگەر مامۆستا ڕێگەت پێبدات.');
-                    localStorage.setItem('arabic_exam_done', 'true');
-                    localStorage.setItem('arabic_exam_version', serverVersion);
-                    localStorage.setItem('arabic_exam_score', existingRecords[0].score || 0);
-                    localStorage.setItem('arabic_exam_answers', JSON.stringify(existingRecords[0].answers || []));
-                    localStorage.setItem('arabic_exam_name', name);
-                    localStorage.setItem('arabic_exam_class', studentClass);
-                    showRestrictedResult();
-                    return;
-                }
-            } catch (err) {
-                console.log("DB lookup error:", err);
+            if (existingRecords && existingRecords.length > 0) {
+                alert('ئەم ناوە سێیانییە پێشتر بەم پۆلەوە لە داتابەیس تۆمار کراوە! ناتوانیت دووبارە بەشداری بکەیت مەگەر مامۆستا ڕێگەت پێبدات.');
+                localStorage.setItem('arabic_exam_done', 'true');
+                localStorage.setItem('arabic_exam_version', serverVersion);
+                localStorage.setItem('arabic_exam_score', existingRecords[0].score || 0);
+                localStorage.setItem('arabic_exam_answers', JSON.stringify(existingRecords[0].answers || []));
+                localStorage.setItem('arabic_exam_name', name);
+                localStorage.setItem('arabic_exam_class', studentClass);
+                showRestrictedResult();
+                return;
             }
+        } catch (err) {
+            console.log("DB lookup error:", err);
+        }
 
-            try {
-                const { data: insertedData } = await supabaseClient
-                    .from('exam_results')
-                    .insert([{ 
-                        student_name: name, 
-                        class_group: studentClass, 
-                        score: 0, 
-                        answers: []
-                    }])
-                    .select();
+        try {
+            const { data: insertedData } = await supabaseClient
+                .from('exam_results')
+                .insert([{ 
+                    student_name: name, 
+                    class_group: studentClass, 
+                    score: 0, 
+                    answers: []
+                }])
+                .select();
 
-                if (insertedData && insertedData.length > 0) {
-                    currentRecordId = insertedData[0].id;
-                }
-            } catch (err) {}
-        }localStorage.setItem('arabic_exam_done', 'true');
+            if (insertedData && insertedData.length > 0) {
+                currentRecordId = insertedData[0].id;
+            }
+        } catch (err) {}
+
+        localStorage.setItem('arabic_exam_done', 'true');
         localStorage.setItem('arabic_exam_version', serverVersion);
         localStorage.setItem('arabic_exam_answers', JSON.stringify([]));
         localStorage.setItem('arabic_exam_score', '0');
@@ -813,8 +865,7 @@
 
         document.getElementById('reviewContainer').innerHTML = reviewHTML;
 
-        if (isSolavStudent && currentRecordId) {
-            supabaseClient
+        if (currentRecordId) {supabaseClient
                 .from('exam_results')
                 .update({ score: score, answers: userAnswers })
                 .eq('id', currentRecordId)
@@ -1002,9 +1053,7 @@
     function showStudentDetail(row) {
         if (!row) return;
         selectedStudentData = row;
-        document.getElementById('modalStudentTitle').innerText = `ئەنجامی قوتابی: ${row.student_name || 'نادیار'}`;
-        
-        let studentAns = [];
+        document.getElementById('modalStudentTitle').innerText = `ئەنجامی قوتابی: ${row.student_name || 'نادیار'}`;let studentAns = [];
         try {
             if (row.answers) {
                 studentAns = typeof row.answers === 'string' ? JSON.parse(row.answers) : row.answers;
@@ -1212,7 +1261,8 @@
     }
 
     function removeQuestionField(index) {
-        if (questions.length <= 1) {alert('دەبێت لە ١ پرسیار کەمتر نەبێت!');
+        if (questions.length <= 1) {
+            alert('دەبێت لە ١ پرسیار کەمتر نەبێت!');
             return;
         }
         questions.splice(index, 1);
@@ -1331,7 +1381,7 @@
             const { data: resultsData } = await supabaseClient.from('exam_results').select('*');
             if (resultsData && resultsData.length > 0 && TELEGRAM_CHAT_ID !== "لێرە_چات_ایدی_مامۆستا_دانێ") {
                 
-                let groupedResults = {};
+                letgroupedResults = {};
                 resultsData.forEach(row => {
                     const groupKey = row.class_group || 'نادیار';
                     if (!groupedResults[groupKey]) {
